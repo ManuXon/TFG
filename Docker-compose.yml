@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15.1
+    container_name: postgres_database
+    expose:
+      - 5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: appdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  backend:
+    build: ./services/backend
+    ports:
+      - "8000:8000"
+    container_name: fastApi_backend
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/appdb
+    volumes:
+      - ./services/backend:/app
+    working_dir: /app
+    command: uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+    networks:
+      - app-network
+
+  frontend:
+    build: ./services/frontend
+    ports:
+      - "8050:8050"
+    container_name: dash_frontend
+    depends_on:
+      - backend
+    environment:
+      - BASE_URL=http://backend:8000
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:

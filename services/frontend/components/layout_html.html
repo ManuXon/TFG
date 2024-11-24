@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
+    <link
+       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+     {%metas%}
+    {%favicon%}
+    {%css%}
+    <!-- Link to the custom CSS -->
+    <link rel="stylesheet" href="/assets/custom.css">
+
+    <title>MapAi Insight</title>
+    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  </head>
+  <body>
+    <div class="relative flex size-full min-h-screen flex-col bg-[#FFFFFF] group/design-root overflow-x-hidden" style='fontFamily: "Plus Jakarta Sans", "Noto Sans", sans-serif;'>
+      <div class="layout-container flex h-full grow flex-col">
+        <header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#F0F2F5] px-10 py-3">
+          <div class="flex items-center gap-4 text-[#141414]">
+            <div class="size-4">
+              <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g clip-path="url(#clip0_6_535)">
+                  <path
+                    fill-rule="evenodd"
+                    clip-rule="evenodd"
+                    d="M47.2426 24L24 47.2426L0.757355 24L24 0.757355L47.2426 24ZM12.2426 21H35.7574L24 9.24264L12.2426 21Z"
+                    fill="currentColor"
+                  ></path>
+                </g>
+                <defs>
+                  <clipPath id="clip0_6_535"><rect width="48" height="48" fill="white"></rect></clipPath>
+                </defs>
+              </svg>
+            </div>
+            <h2 class="text-[#141414] text-lg font-bold leading-tight tracking-[-0.015em]">MapAI Insights</h2>
+          </div>
+          <div class="flex flex-1 justify-end gap-8">
+            <div class="flex items-center gap-9">
+              <a class="text-[#141414] text-sm font-medium leading-normal" href="#">Home</a>
+              <a class="text-[#141414] text-sm font-medium leading-normal" href="#">About</a>
+              <a class="text-[#141414] text-sm font-medium leading-normal" href="#">Research</a>
+              <a class="text-[#141414] text-sm font-medium leading-normal" href="#">Publications</a>
+              <a class="text-[#141414] text-sm font-medium leading-normal" href="#">Contact</a>
+            </div>
+            <div
+              class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10"
+              style='backgroundImage: url("https://cdn.usegalileo.ai/stability/27f7fe92-189b-409e-a20f-10a158f778dd.png");'
+            ></div>
+          </div>
+        </header>
+        <div class="px-40 flex flex-1 justify-center py-5">
+          <div class="layout-content-container flex flex-col max-w-[1190px] flex-1">
+            <div class="@container">
+              <div class="@[480px]:p-4">
+                <div
+                  class="flex min-h-[480px] flex-col gap-6 bg-cover bg-center bg-no-repeat @[480px]:gap-8 @[480px]:rounded-xl items-start justify-end px-4 pb-10 @[480px]:px-10"
+                  style='background-image: linear-gradient(rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.4) 100%), url("https://web.ub.edu/documents/2685349/2688302/Edifici-Historic-UB.jpg/50a16318-b3e0-98d2-d87d-addab8a02e3e?t=1679906151121");'
+                >
+                  <div class="flex flex-col gap-2 text-left">
+                    <h1
+                      class="text-white text-4xl font-black leading-tight tracking-[-0.033em] @[480px]:text-5xl @[480px]:font-black @[480px]:leading-tight @[480px]:tracking-[-0.033em]"
+                    >
+                      Exploring AI at the University of Barcelona
+                    </h1>
+                    <h2 class="text-white text-sm font-normal leading-normal @[480px]:text-base @[480px]:font-normal @[480px]:leading-normal">
+                      Dive into the latest AI research and insights
+                    </h2>
+                  </div>
+                  <button
+                    class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 @[480px]:h-12 @[480px]:px-5 bg-[#359EFF] text-[#FFFFFF] text-sm font-bold leading-normal tracking-[0.015em] @[480px]:text-base @[480px]:font-bold @[480px]:leading-normal @[480px]:tracking-[0.015em]"
+                  >
+                    <span class="truncate">Learn More</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <h2 class="text-[#141414] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">A MapAI Project</h2>
+            <p class="text-[#141414] text-base font-normal leading-normal pb-3 pt-1 px-4">
+              Discover how MapAI is leveraging artificial intelligence to enhance academic research and provide deeper insights into various fields at the University of Barcelona.
+            </p>
+          </div>
+        </div>
+          <!-- Required placeholders for Dash -->
+    <div id="dash-app">
+        {%app_entry%} <!-- Dash will inject components here -->
+
+          <div id="app-container">
+        <div class="container-fluid">
+            <!-- Header -->
+            <div class="row justify-content-center">
+                <div class="col-10">
+                    <h3 class="text-center my-4 display-3">Insights into AI and UB</h3>
+                </div>
+            </div>
+
+            <!-- Graphs -->
+            <div class="row justify-content-center">
+                <div class="col-12">
+                    <h3 class="text-center my-3">AI Spike Map Distribution</h3>
+                    <p class="text-center lead">Where is the AI implemented?</p>
+                    <div id="spike-map"></div> <!-- Placeholder for spike map -->
+                </div>
+            </div>
+
+            <div class="row justify-content-center">
+                <div class="col-12">
+                    <h3 class="text-center my-3">3D Scatter Map AI Distribution</h3>
+                    <p class="text-center lead">3D representation of AI integration</p>
+                    <div id="scatter3d"></div> <!-- Placeholder for 3D scatter map -->
+                </div>
+            </div>
+
+            <div class="row justify-content-center">
+                <div class="col-12">
+                    <h3 class="text-center my-3">Visualization of UB Faculties Historical Data</h3>
+                    <p class="text-center lead">Below is a dynamic line chart illustrating the evolution of AI in teaching</p>
+                    <div id="historical-graph"></div> <!-- Placeholder for historical graph -->
+                </div>
+            </div>
+
+            <div class="row align-items-stretch" style="margin-bottom: 30px;">
+                <div class="col-6">
+                    <h3 class="text-center my-3">Historical Records for All Faculties</h3>
+                    <p class="text-center lead">Compare different faculties of your choosing over time.</p>
+                    <div id="historical-table"></div> <!-- Placeholder for historical table -->
+                </div>
+                <div class="col-6">
+                    <h3 class="text-center my-3">AI Usage by Faculty (Sunburst Chart)</h3>
+                    <p class="text-center lead">Visual comparison of the AI integration</p>
+                    <div id="sunburst-graph"></div> <!-- Placeholder for sunburst chart -->
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+        <footer class="flex justify-center">
+          <div class="flex max-w-[960px] flex-1 flex-col">
+            <footer class="flex flex-col gap-6 px-5 py-10 text-center @container">
+              <div class="flex flex-wrap items-center justify-center gap-6 @[480px]:flex-row @[480px]:justify-around">
+                <a class="text-[#3E4D5B] text-base font-normal leading-normal min-w-40" href="#">Privacy Policy</a>
+                <a class="text-[#3E4D5B] text-base font-normal leading-normal min-w-40" href="#">Terms of Service</a>
+              </div>
+              <p class="text-[#3E4D5B] text-base font-normal leading-normal">© 2023 University of Barcelona - MapAI Project</p>
+            </footer>
+          </div>
+        </footer>
+          {%config%}
+          {%scripts%}
+          {%renderer%}
+      </div>
+    </div>
+
+  </body>
+</html>
