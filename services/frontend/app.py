@@ -98,6 +98,8 @@ app.layout = html.Div(
     }
 )
 
+
+
 # Register Callbacks
 register_callbacks(app)
 

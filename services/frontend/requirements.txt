@@ -4,5 +4,8 @@ plotly==5.15.0
 requests==2.31.0
 numpy==1.24.0
 dash-bootstrap-components
-pydeck
+pydeck==0.9.1
+dash-deck
 geopandas
+matplotlib
+circlify

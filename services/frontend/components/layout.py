@@ -94,204 +94,572 @@ layout = html.Div(
                 'padding': '0px 0px 0px 40px'
             }
         ),
-        html.Div(
-            id="cards",
-            children=[
-                html.Div(
-                    className="bg-gradient-to-r from-blue-100 via-blue-50 to-blue-100 rounded-lg p-8",
-                    children=[
-                        html.H1(
-                            "How do we visualize AI in Education?",
-                            className="text-5xl font-title text-neutral-950",
-                            style={
-                                'text-align': 'left',
-                                'font-weight': '800'
-                            }
+        dbc.Card(
+            dbc.CardBody(
+                dbc.Row(
+                    [
+                        # LEFT COLUMN - 2x2 Grid of Dimensions
+                        dbc.Col(
+                            html.Div(
+                                style={
+                                    "display": "grid",
+                                    "gridTemplateColumns": "1fr 1fr",
+                                    "gridTemplateRows": "1fr 1fr",
+                                    "gap": "8px",
+                                    "height": "100%",
+                                    "paddingRight": "20px",
+                                    "padding-left": "7px",
+                                },
+                                children=[
+                                    # Knowledge
+                                    html.Div(
+                                        style={
+                                            "background": "linear-gradient(to bottom, #fee2e2, #fecaca)",
+                                            "borderRadius": "12px",
+                                            "padding": "20px",
+                                            "boxShadow": "0 2px 6px rgba(0,0,0,0.1)",
+                                            "cursor": "default",
+                                            "display": "flex",
+                                            "flexDirection": "column",
+                                            "justifyContent": "center",
+                                            "textAlign": "center",
+                                        },
+                                        children=[
+                                            html.H2(
+                                                "Knowledge",
+                                                style={
+                                                    "color": "#b91c1c",
+                                                    "fontWeight": "700",
+                                                    "fontSize": "1.3rem",
+                                                    "marginBottom": "10px",
+                                                },
+                                            ),
+                                            html.P(
+                                                "Understanding of AI concepts and technologies.",
+                                                style={"margin": "0", "color": "#1a1a1a", "fontSize": "1rem"},
+                                            ),
+                                        ],
+                                    ),
+
+                                    # Uses
+                                    html.Div(
+                                        style={
+                                            "background": "linear-gradient(to bottom, #ede9fe, #ddd6fe)",
+                                            "borderRadius": "12px",
+                                            "padding": "20px",
+                                            "boxShadow": "0 2px 6px rgba(0,0,0,0.1)",
+                                            "cursor": "default",
+                                            "display": "flex",
+                                            "flexDirection": "column",
+                                            "justifyContent": "center",
+                                            "textAlign": "center",
+                                        },
+                                        children=[
+                                            html.H2(
+                                                "Uses",
+                                                style={
+                                                    "color": "#6b21a8",
+                                                    "fontWeight": "700",
+                                                    "fontSize": "1.3rem",
+                                                    "marginBottom": "10px",
+                                                },
+                                            ),
+                                            html.P(
+                                                "Applications and integration of AI tools in teaching practices.",
+                                                style={"margin": "0", "color": "#1a1a1a", "fontSize": "1rem"},
+                                            ),
+                                        ],
+                                    ),
+
+                                    # Perceptions
+                                    html.Div(
+                                        style={
+                                            "background": "linear-gradient(to bottom, #dcfce7, #bbf7d0)",
+                                            "borderRadius": "12px",
+                                            "padding": "20px",
+                                            "boxShadow": "0 2px 6px rgba(0,0,0,0.1)",
+                                            "cursor": "default",
+                                            "display": "flex",
+                                            "flexDirection": "column",
+                                            "justifyContent": "center",
+                                            "textAlign": "center",
+                                        },
+                                        children=[
+                                            html.H2(
+                                                "Perceptions",
+                                                style={
+                                                    "color": "#15803d",
+                                                    "fontWeight": "700",
+                                                    "fontSize": "1.3rem",
+                                                    "marginBottom": "10px",
+                                                },
+                                            ),
+                                            html.P(
+                                                "Opinions and beliefs regarding AI's impact on education.",
+                                                style={"margin": "0", "color": "#1a1a1a", "fontSize": "1rem"},
+                                            ),
+                                        ],
+                                    ),
+
+                                    # Training
+                                    html.Div(
+                                        style={
+                                            "background": "linear-gradient(to bottom, #fef9c3, #fef08a)",
+                                            "borderRadius": "12px",
+                                            "padding": "20px",
+                                            "boxShadow": "0 2px 6px rgba(0,0,0,0.1)",
+                                            "cursor": "default",
+                                            "display": "flex",
+                                            "flexDirection": "column",
+                                            "justifyContent": "center",
+                                            "textAlign": "center",
+                                        },
+                                        children=[
+                                            html.H2(
+                                                "Training",
+                                                style={
+                                                    "color": "#b45309",
+                                                    "fontWeight": "700",
+                                                    "fontSize": "1.3rem",
+                                                    "marginBottom": "10px",
+                                                },
+                                            ),
+                                            html.P(
+                                                "Self-assessment and suggestions for AI-related professional development.",
+                                                style={"margin": "0", "color": "#1a1a1a", "fontSize": "1rem"},
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                            ),
+                            width=6,
                         ),
-                        html.P(
-                            "This visualization is based on survey data collected from the teaching staff at the "
-                            "University of Barcelona. For the development of the research, the results have been "
-                            "categorized into the following areas.",
-                            className="text-neutral-800 mt-4 leading-7 text-lg",
-                            style={
-                                'text-align': 'justify'
-                            }
+
+                        # RIGHT COLUMN - Explanation Text
+                        dbc.Col(
+                            dbc.CardBody(
+                                [
+                                    html.H4(
+                                        "From Survey to Insight: Turning Data into Meaning",
+                                        style={
+                                            "fontSize": "1.8rem",
+                                            "fontWeight": "600",
+                                            "color": "#1A1A1A",
+                                            "fontFamily": "'Segoe UI', 'Helvetica Neue', sans-serif",
+                                            "letterSpacing": "0.5px",
+                                            "marginBottom": "15px",
+                                            "textAlign": "left",
+                                            "borderLeft": "4px solid #636EFA",
+                                            "paddingLeft": "10px",
+                                        },
+                                    ),
+                                    html.P(
+                                        [
+                                            "The survey conducted with faculty members provides a structured way of capturing ",
+                                            html.Strong("how educators understand, use, and perceive AI"),
+                                            " while also assessing their needs for further training. ",
+                                            html.Br(),
+                                            html.Br(),
+                                            "Responses are transformed into ",
+                                            html.Strong("numerical values"),
+                                            " and aggregated into the four key dimensions. This allows us to move from raw answers to ",
+                                            html.Strong("comparable scores"),
+                                            " across faculties and categories. ",
+                                            html.Br(),
+                                            html.Br(),
+                                            "Through this process, the data becomes ",
+                                            html.Em("meaningful insight"),
+                                            " — highlighting strengths, gaps, and opportunities. These results are then visualized in an ",
+                                            html.Strong("interactive dashboard"),
+                                            ", enabling exploration of differences between faculties, trends across dimensions, and the role of sociographic variables. ",
+                                            html.Br(),
+                                            html.Br(),
+                                            "Ultimately, this approach helps transform scattered survey responses into a ",
+                                            html.Strong("clear picture of AI adoption in higher education"),
+                                            ", making it easier to support decision-making and strategy building.",
+                                        ],
+                                        className="text-justify",
+                                        style={
+                                            "fontSize": "1.05rem",
+                                            "lineHeight": "1.7",
+                                            "color": "#4A4A4A",
+                                            "whiteSpace": "pre-line",
+                                            "padding": "0 5px",
+                                        },
+                                    ),
+                                ]
+                            ),
+                            width=6,
                         ),
-                        html.Div(
-                            className="mt-8 grid grid-cols-4 gap-4",
-                            children=[
-                                html.Div(
-                                    className="bg-gradient-to-b from-red-100 to-red-200 rounded-md p-6 shadow-sm "
-                                              "hover:shadow-lg transition duration-200",
-                                    children=[
-                                        html.H2(
-                                            "Knowledge of AI",
-                                            className="text-center font-semibold text-red-700 text-lg"
-                                        ),
-                                        html.P(
-                                            "Understanding of AI concepts and technologies.",
-                                            className="text-center mt-3 text-neutral-950"
-                                        )
-                                    ]
-                                ),
-                                html.Div(
-                                    className="bg-gradient-to-b from-purple-100 to-purple-200 rounded-md p-6 "
-                                              "shadow-sm hover:shadow-lg transition duration-200",
-                                    children=[
-                                        html.H2(
-                                            "Uses of AI",
-                                            className="text-center font-semibold text-purple-700 text-lg"
-                                        ),
-                                        html.P(
-                                            "Applications and integration of AI tools in teaching practices.",
-                                            className="text-center mt-3 text-neutral-950"
-                                        )
-                                    ]
-                                ),
-                                html.Div(
-                                    className="bg-gradient-to-b from-green-100 to-green-200 rounded-md p-6 shadow-sm "
-                                              "hover:shadow-lg transition duration-200",
-                                    children=[
-                                        html.H2(
-                                            "Perceptions",
-                                            className="text-center font-semibold text-green-700 text-lg"
-                                        ),
-                                        html.P(
-                                            "Opinions and beliefs regarding AI's impact on education.",
-                                            className="text-center mt-3 text-neutral-950"
-                                        )
-                                    ]
-                                ),
-                                html.Div(
-                                    className="bg-gradient-to-b from-yellow-100 to-yellow-200 rounded-md p-6 "
-                                              "shadow-sm hover:shadow-lg transition duration-200",
-                                    children=[
-                                        html.H2(
-                                            "Training Needs",
-                                            className="text-center font-semibold text-yellow-700 text-lg"
-                                        ),
-                                        html.P(
-                                            "Self-assessment and suggestions for AI-related professional development.",
-                                            className="text-center mt-3 text-neutral-950"
-                                        )
-                                    ]
-                                )
-                            ],
-                            style={
-                                'display': 'flex'
-                            }
-                        ),
-                        html.P(
-                            "To generate the visualizations, numerical values were assigned to the survey responses. "
-                            "Using these values, an average score for each category related to artificial "
-                            "intelligence was calculated. These scores represent the extent to which AI tools "
-                            "are being adopted and used across various dimensions within the context of higher "
-                            "education. They provide an aggregated overview, which may simplify the variability "
-                            "in responses but allows for comparative insights across faculties and individuals.",
-                            className="text-neutral-800 mt-8 leading-7 text-lg",
-                            style={
-                                'text-align': 'justify'
-                            }
-                        ),
-                        html.P(
-                            "Below you will find graphics that will help you explore the impact of each category "
-                            "across the faculties of the University of Barcelona.",
-                            className="text-neutral-800 mt-8 leading-7 text-lg",
-                            style={
-                                'text-align': 'justify'
-                            }
-                        ),
-                        html.P(
-                            "Data can also be filtered based on sociographic variables such as demographics or "
-                            "professional profiles, allowing for deeper insights within each specific category.",
-                            className="text-neutral-800 mt-4 leading-7 text-lg",
-                            style={
-                                'text-align': 'justify'
-                            }
-                        )
                     ]
                 )
-            ],
+            ),
             style={
-                'margin-top': '76px'
-            }
-        ),
+                "height": "100%",
+                "boxShadow": "0 4px 10px rgba(0,0,0,0.05)",
+                "borderRadius": "12px",
+                "border": "1px solid #e5e7eb",
+                "marginBottom": "30px",
+            },
+        )
+
+        ,
 
         # Header with Title
         dbc.Container([
             dbc.Row([
-                dbc.Col(html.H3("General Overview", className="text-center my-4 display-3"),style={'margin-top': '80px'}, width=10)
+                dbc.Col(html.H3("General Overview", className="text-center my-4 display-3",
+                                style={"font-weight": "600",
+                                       "font-size": "100px", "font-family": "serif"}),
+                        style={'margin-top': '80px', "padding-left": "261px"}, width=10)
             ], justify="left"),
         ]),
 
-        # Interval Component
-        dcc.Interval(
-            id='interval-component',
-            interval=60 * 50000,  # Update every 50 minutes
-            n_intervals=0,  # Initialize to 0
-            disabled=False
-        ),
-
-        # Spike Map (scattermapbox) Visualization
+        # Spike Map (mapbox) Visualization
         dbc.Row([
             dbc.Col(
                 html.Div([
-                    html.H3("AI Spike Map Distribution", className="text-center my-3"),
-                    html.P("Where is the AI implemented?", className="text-center lead"),
-                    html.Div(id="spike-map"),  # Container for the Pydeck map
-                    dcc.Interval(id="interval-component", interval=60000, n_intervals=0)  # Update every minute
+                    dbc.Row([
+                        dbc.Col([
+                            html.H3("Filters", className="text-center mb-3"),
+                            dcc.Dropdown(
+                                id="category-dropdown",
+                                options=[
+                                    {"label": "All", "value": "All"},
+                                    {"label": "Knowledge of AI", "value": "knowledge"},
+                                    {"label": "Uses of AI", "value": "uses"},
+                                    {"label": "Perceptions", "value": "perceptions"},
+                                    {"label": "Training", "value": "training"}
+                                ],
+                                value="All",
+                                className="mb-2"
+                            ),
+                            dcc.Dropdown(
+                                id="gender-dropdown",
+                                options=[
+                                    {"label": "Female", "value": "Female"},
+                                    {"label": "Male", "value": "Male"},
+                                    {"label": "Non-binary", "value": "Non-binary"},
+                                    {"label": "Others", "value": "Others"},
+                                    {"label": "No answer", "value": "No answer"}
+                                ],
+                                placeholder="Select gender",
+                                value=None,
+                                className="mb-2"
+                            ),
+                            dcc.Dropdown(
+                                id="teaching-experience-dropdown",
+                                options=[
+                                    {"label": "Less than 5 years", "value": "Less than 5 years"},
+                                    {"label": "Between 5 and 10 years", "value": "Between 5 and 10 years"},
+                                    {"label": "Between 10 and 20 years", "value": "Between 10 and 20 years"},
+                                    {"label": "More than 20 years", "value": "More than 20 years"}
+                                ],
+                                placeholder="Select teaching experience",
+                                value=None,
+                                className="mb-2"
+                            ),
+                            dcc.Dropdown(
+                                id="ub-profile-dropdown",
+                                options=[
+                                    {"label": "Associate", "value": "Associate"},
+                                    {"label": "PreDoc", "value": "PreDoc"},
+                                    {"label": "Permanent Collaborator", "value": "Permanent Collaborator"},
+                                    {"label": "Permanent Doctor Collaborator",
+                                     "value": "Permanent Doctor Collaborator"},
+                                    {"label": "Lecturer", "value": "Lecturer"},
+                                    {"label": "PostDoc", "value": "PostDoc"},
+                                    {"label": "Aggregate", "value": "Aggregate"},
+                                    {"label": "Tenured", "value": "Tenured"},
+                                    {"label": "Professor", "value": "Professor"}
+                                ],
+                                placeholder="Select profile",
+                                value=None,
+                                className="mb-2"
+                            ),
+                        ], width=3, className="filters-container", style={
+                            "margin-top": "72px"
+                        }),
+                        dbc.Col([
+                            html.H3("Barcelona's Faculties Map Distribution", className="text-center my-3"),
+                            html.P("Geolocation of UB faculties scores", className="text-center lead"),
+                            html.Div(id="spike-map", style={"width": "100%", "height": "535px", "position": "relative"})
+                        ], width=9, className="map-container"),
+                        dbc.Col([
+                            html.Div(id="map-legend", className="legend-container mt-3")
+                        ], width=3, className="legend-container", style={"margin-top": "-360px"}),
+                        dbc.Col([html.Div([
+                            dcc.Graph(id="bar-graph", config={"displayModeBar": False}),
+                            html.Div([
+                                dbc.Row(
+                                    [
+                                        dbc.Col(
+                                            dbc.Button(
+                                                html.I(className="fa fa-arrow-left"),  # Add Font Awesome left arrow
+                                                id="prev-button",
+                                                className="btn btn-secondary rounded-circle px-3 py-2",
+                                            ),
+                                            width="auto"
+                                        ),
+                                        dbc.Col(
+                                            dbc.Button(
+                                                html.I(className="fa fa-arrow-right"),  # Add Font Awesome right arrow
+                                                id="next-button",
+                                                className="btn btn-primary rounded-circle px-3 py-2",
+                                            ),
+                                            width="auto"
+                                        ),
+                                    ],
+                                    className="justify-content-center my-3"
+                                ),
+                            ])
+                        ])], width=12)
+                    ], className="align-items-start")
                 ], className="graph-container"), width=12
             )
         ], justify="center"),
 
-        # Scatter3D Visualization
+        # Sankeys Visualization for all faculties
         dbc.Row([
             dbc.Col(
                 html.Div([
-                    html.H3("3D Scatter Map AI Distribution", className="text-center my-3"),
-                    html.P("3D representation of AI integration", className="text-center lead"),
-                    dcc.Graph(id='scatter3d', config={'displayModeBar': False}, className="dash-graph")
-                ], className="graph-container"), width=12
-            )
-        ], justify="center"),
-
-        # Line Chart Race Visualization for all faculties
-        dbc.Row([
-            dbc.Col(
-                html.Div([
-                    html.H3("Visualization of UB Faculties Historical Data", className="text-center my-3"),
-                    html.P("Below is a dynamic line chart illustrating the evolution of AI in teaching",
+                    html.H3("Distribution of the scores between faculties", className="text-center my-3"),
+                    html.P("Click on any given node to expand the flow of each score.",
                            className="text-center lead"),
-                    dcc.Graph(id='historical-graph', config={'displayModeBar': False}, className="dash-graph")
-                ], className="graph-container"), width=12
+                    dcc.Graph(id='sankey-chart', config={'displayModeBar': False}, className="dash-graph")
+                ], className="graph-container", id="sankey-chart-container"), width=12
             )
         ], justify="center"),
 
-        # Historical Records Data Table and Sunburst Chart Side-by-Side
-        dbc.Row([
-            # Historical Records Data Table (6 columns)
-            dbc.Col(
-                html.Div([
-                    html.H3("Historical Records for All Faculties", className="text-center my-3"),
-                    dcc.Loading(
-                        id="loading-icon",
-                        type="circle",
-                        children=[
-                            html.P('Compare different faculties of your choosing over time.',
-                                   className="text-center lead"),
-                            html.Div(id='historical-table', className="dash-graph")
-                        ]
-                    )
-                ], className="graph-container h-100"), width=6
-            ),
-            # Sunburst Chart (6 columns)
-            dbc.Col(
-                html.Div([
-                    html.H3("AI Usage by Faculty (Sunburst Chart)", className="text-center my-3"),
-                    html.P("Visual comparison of the AI integration", className="text-center lead"),
-                    dcc.Graph(id='sunburst-graph', config={'displayModeBar': False}, className="dash-graph"),
-                ], className="graph-container h-100"), width=6
-            )
-        ], className="align-items-stretch",
-            style={"margin-bottom": "30px"})
+        dbc.Row(
+            [
+                dbc.Col(
+                    html.Div(
+                        [
+                            # Title
+                            html.H3(
+                                "Size comparison",
+                                id="map-title",
+                                className="text-center my-3"
+                            ),
+
+                            # Chart type toggle (Radio buttons)
+                            dbc.Row(
+                                dbc.Col(
+                                    dcc.RadioItems(
+                                        id="chart-type-toggle",
+                                        options=[
+                                            {"label": "Bubble Chart", "value": "bubble"},
+                                            {"label": "Treemap", "value": "treemap"}
+                                        ],
+                                        value="treemap",
+                                        inline=True,
+                                        labelStyle={"margin-right": "20px", "padding-left": "8px"},
+                                        className="mb-3"
+                                    ),
+                                    width=12
+                                ),
+                                className="justify-content-center"
+                            ),
+
+                            # Dropdown filters
+                            dbc.Row(
+                                [
+                                    dbc.Col(
+                                        dcc.Dropdown(
+                                            id="gender-dropdown-b",
+                                            options=[
+                                                {"label": "Female", "value": "Female"},
+                                                {"label": "Male", "value": "Male"},
+                                                {"label": "Non-binary", "value": "Non-binary"},
+                                                {"label": "Others", "value": "Others"},
+                                                {"label": "No answer", "value": "No answer"}
+                                            ],
+                                            placeholder="Select gender",
+                                            value=None,
+                                            className="mb-2",
+                                            style={"padding-left": "8px"}
+                                        ),
+                                        width=4
+                                    ),
+                                    dbc.Col(
+                                        dcc.Dropdown(
+                                            id="teaching-experience-dropdown-b",
+                                            options=[
+                                                {"label": "Less than 5 years", "value": "Less than 5 years"},
+                                                {"label": "Between 5 and 10 years", "value": "Between 5 and 10 years"},
+                                                {"label": "Between 10 and 20 years",
+                                                 "value": "Between 10 and 20 years"},
+                                                {"label": "More than 20 years", "value": "More than 20 years"}
+                                            ],
+                                            placeholder="Select teaching experience",
+                                            value=None,
+                                            className="mb-2"
+                                        ),
+                                        width=4
+                                    ),
+                                    dbc.Col(
+                                        dcc.Dropdown(
+                                            id="ub-profile-dropdown-b",
+                                            options=[
+                                                {"label": "Associate", "value": "Associate"},
+                                                {"label": "PreDoc", "value": "PreDoc"},
+                                                {"label": "Permanent Collaborator", "value": "Permanent Collaborator"},
+                                                {"label": "Permanent Doctor Collaborator",
+                                                 "value": "Permanent Doctor Collaborator"},
+                                                {"label": "Lecturer", "value": "Lecturer"},
+                                                {"label": "PostDoc", "value": "PostDoc"},
+                                                {"label": "Aggregate", "value": "Aggregate"},
+                                                {"label": "Tenured", "value": "Tenured"},
+                                                {"label": "Professor", "value": "Professor"}
+                                            ],
+                                            placeholder="Select profile",
+                                            value=None,
+                                            className="mb-2"
+                                        ),
+                                        width=4
+                                    ),
+                                ],
+                                className="mb-3"
+                            ),
+
+                            # Treemap visualization
+                            dcc.Graph(
+                                id="text-map",
+                                config={"displayModeBar": False},
+                                className="dash-graph"
+                            ),
+
+                            # Navigation buttons
+                            dbc.Row(
+                                [
+                                    dbc.Col(
+                                        dbc.Button(
+                                            html.I(className="fa fa-arrow-left"),  # Font Awesome left arrow
+                                            id="btn-left",
+                                            disabled=True,
+                                            className="btn btn-secondary rounded-circle px-3 py-2",
+                                        ),
+                                        width="auto"
+                                    ),
+                                    dbc.Col(
+                                        dbc.Button(
+                                            html.I(className="fa fa-arrow-right"),  # Font Awesome right arrow
+                                            id="btn-right",
+                                            className="btn btn-primary rounded-circle px-3 py-2",
+                                        ),
+                                        width="auto"
+                                    ),
+                                ],
+                                id="nav-buttons-row",
+                                className="justify-content-center my-3"
+                            )
+                        ],
+                        className="graph-container"
+                    ),
+                    width=6  # Left column with graph occupies 50% space
+                ),
+
+                # Right column with text block
+                # Right column with explanation
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardBody(
+                                [
+                                    html.H4(
+                                        "Why Breaking AI into Four Dimensions Matters",
+                                        style={
+                                            "fontSize": "1.8rem",
+                                            "fontWeight": "600",
+                                            "color": "#1A1A1A",
+                                            "fontFamily": "'Segoe UI', 'Helvetica Neue', sans-serif",
+                                            "letterSpacing": "0.5px",
+                                            "marginBottom": "15px",
+                                            "textAlign": "left",
+                                            "borderLeft": "4px solid #636EFA",  # subtle accent line
+                                            "paddingLeft": "10px"
+                                        }
+                                    ),
+                                    html.P(
+                                        [
+                                            "Dividing AI integration into ",
+                                            html.Strong("four dimensions"),
+                                            " — ",
+                                            html.Span("Knowledge", style={"color": "#636EFA", "fontWeight": "bold"}),
+                                            ", ",
+                                            html.Span("Uses", style={"color": "#EF553B", "fontWeight": "bold"}),
+                                            ", ",
+                                            html.Span("Perceptions", style={"color": "#00CC96", "fontWeight": "bold"}),
+                                            ", and ",
+                                            html.Span("Training", style={"color": "#AB63FA", "fontWeight": "bold"}),
+                                            " — provides a ",
+                                            html.Strong("clearer and more strategic perspective"),
+                                            " on how educators engage with emerging technologies. ",
+                                            "Instead of relying on a single overall score that can obscure critical nuances, this multidimensional view ",
+                                            html.Strong("separates causes from effects"),
+                                            ", exposes hidden gaps, and ",
+                                            html.Strong("pinpoints where interventions will have the greatest impact"),
+                                            ". ",
+                                            html.Br(),
+                                            html.Br(),
+                                            "By analyzing these dimensions independently, we can ",
+                                            html.Strong(
+                                                "design policies and support systems that respond to real needs"),
+                                            " — whether that means strengthening ",
+                                            html.Em("conceptual understanding"),
+                                            ", improving ",
+                                            html.Em("practical application"),
+                                            ", reshaping ",
+                                            html.Em("attitudes and expectations"),
+                                            ", or addressing ",
+                                            html.Em("training priorities"),
+                                            ". ",
+                                            html.Br(),
+                                            html.Br(),
+                                            "The result is a more ",
+                                            html.Strong("targeted, equitable, and effective approach"),
+                                            " to fostering meaningful AI adoption in higher education.",
+                                            html.Br(),
+                                            html.Br(),
+                                            "Moreover, this framework allows institutions to ",
+                                            html.Strong("track progress over time"),
+                                            " and make ",
+                                            html.Em("evidence-based comparisons"),
+                                            " between faculties. By mapping how each dimension evolves, decision-makers can ",
+                                            html.Strong("anticipate future needs"),
+                                            ", allocate resources more intelligently, and build ",
+                                            html.Em("long-term strategies"),
+                                            ". ",
+                                        ],
+                                        className="text-justify",
+                                        style={
+                                            "fontSize": "1.05rem",
+                                            "lineHeight": "1.7",
+                                            "color": "#4A4A4A",
+                                            "whiteSpace": "pre-line",
+                                            "padding": "0 5px",
+                                            "padding-right": "35px",
+                                            "text-align": "justify",
+                                        },
+                                    )
+
+                                ]
+                            )
+                        ],
+                        className="shadow-sm border-0",
+                        style={
+                            "borderRadius": "20px",
+                            "backgroundColor": "#F9FAFB",
+                            "padding": "20px",
+                            "margin-top": "20px",
+                            "boxShadow": "0 2px 8px rgba(0, 0, 0, 0.05)"
+                        }
+                    ),
+                    width=6
+                )
+            ],
+            justify="center",
+            className="d-flex align-items-stretch"
+        )
     ], )
