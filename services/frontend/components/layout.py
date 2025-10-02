@@ -586,13 +586,13 @@ layout = html.Div(
                                             "Dividing AI integration into ",
                                             html.Strong("four dimensions"),
                                             " — ",
-                                            html.Span("Knowledge", style={"color": "#636EFA", "fontWeight": "bold"}),
+                                            html.Span("Knowledge", style={"color": "#b91c1c", "fontWeight": "bold"}),
                                             ", ",
-                                            html.Span("Uses", style={"color": "#EF553B", "fontWeight": "bold"}),
+                                            html.Span("Uses", style={"color": "#6b21a8", "fontWeight": "bold"}),
                                             ", ",
-                                            html.Span("Perceptions", style={"color": "#00CC96", "fontWeight": "bold"}),
+                                            html.Span("Perceptions", style={"color": "#15803d", "fontWeight": "bold"}),
                                             ", and ",
-                                            html.Span("Training", style={"color": "#AB63FA", "fontWeight": "bold"}),
+                                            html.Span("Training", style={"color": "#b45309", "fontWeight": "bold"}),
                                             " — provides a ",
                                             html.Strong("clearer and more strategic perspective"),
                                             " on how educators engage with emerging technologies. ",
@@ -661,5 +661,14 @@ layout = html.Div(
             ],
             justify="center",
             className="d-flex align-items-stretch"
-        )
+        ),
+        html.Iframe(
+            src="/assets/faculty_selector/index.html",
+            style={
+                "width": "100%",
+                "height": "100vh",
+                "border": "none",
+            }
+        ),
+
     ], )

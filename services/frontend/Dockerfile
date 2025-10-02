@@ -1,20 +1,23 @@
-# Use the official Python image from Docker Hub
-FROM python:3.9-slim
+# 1️⃣ Build React
+#FROM node:18 as react-build
+#WORKDIR /app
+#COPY react-components/ ./react-components/
+#WORKDIR /app/react-components
+#RUN npm install --legacy-peer-deps && npm run build
 
-# Set the working directory in the container
+# 2️⃣ Build Python/Dash
+FROM python:3.11-slim
 WORKDIR /app
 
-# Copy the requirements file to the container
-COPY requirements.txt .
-
 # Install Python dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code
+# Copy Dash app code
 COPY . .
 
-# Expose port 8050 for the Dash app
-EXPOSE 8050
+# Copy built React files into assets
+#COPY --from=react-build /app/react-components/build ./assets/faculty_selector
 
-# Command to run the Dash app
+EXPOSE 8050
 CMD ["python", "app.py"]
