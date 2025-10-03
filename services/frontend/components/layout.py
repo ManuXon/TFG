@@ -662,13 +662,21 @@ layout = html.Div(
             justify="center",
             className="d-flex align-items-stretch"
         ),
-        html.Iframe(
-            src="/assets/faculty_selector/index.html",
-            style={
-                "width": "100%",
-                "height": "100vh",
-                "border": "none",
-            }
+        html.Div(
+            [
+                html.Iframe(
+                    id="faculty-selector-iframe",
+                    src="/assets/faculty_selector/index.html",
+                    style={
+                        "width": "100%",
+                        "height": "700px",  # initial height; we'll auto-resize below
+                        "border": "0",
+                        "overflow": "hidden",
+                        "display": "block",
+                    },
+
+                ),
+            ]
         ),
 
     ], )

@@ -40,15 +40,4 @@
       To create a production bundle, use `npm run build` or `yarn build`.
     -->
   </body>
-  <script>
-  function sendHeight() {
-    const height = document.body.scrollHeight;
-    console.log("Measured body height:", height);
-    window.parent?.postMessage({ source: "faculty_selector_height", height }, "*");
-  }
-
-  window.addEventListener("load", sendHeight);
-  new ResizeObserver(sendHeight).observe(document.body);
-</script>
-
 </html>
