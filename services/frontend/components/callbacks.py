@@ -8,7 +8,6 @@ import pydeck as pdk
 import dash_deck
 import circlify
 
-from utils.data_fetcher import get_latest_ia_usages, get_all_historical_data
 
 from utils.data_fetcher import get_spike_map_data, get_sankey_chart_data, get_treemap_data
 

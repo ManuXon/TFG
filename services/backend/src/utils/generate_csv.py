@@ -34,7 +34,7 @@ ub_profiles = [
     "Lector/a", "PostDoc", "Agregat/da", "Titular", "Catedràtic/a"
 ]
 teaching_modes = ["Únicament presencial", "Únicament virtual", "Presencial i virtual"]
-
+#Estas interesado en saber sobre la ia en docencia recerca
 # IA Knowledge
 ia_knowledge_levels = ["Cap coneixement", "Poc coneixement", "Bon coneixement", "Coneixement expert"]
 
@@ -42,6 +42,7 @@ ia_normative_ub = ["Sí, hi ha una normativa per estudiants i professorat",
                    "Sí, hi ha una guia amb orientacions per al professorat",
                    "No hi ha cap guia ni cap normativa a la UB",
                    "Ho desconec"]
+
 ia_normative_read = ["Si", "No"]
 
 # IA USES
