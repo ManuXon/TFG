@@ -8,11 +8,12 @@ layout = html.Div(
         'flex-direction': 'column',
         'min-height': '100vh',  # Ensure it spans the viewport height
         'background-color': '#f8f9fa',  # Optional: set a background color
+        'overflow-x': 'auto',
     },
     children=[
         # Main Section: Introductory Content
         dbc.Container(
-            className='d-flex align-items-center gap-6 my-5',  # Flexbox container for alignment and spacing
+            className='d-flex align-items-center gap-6 my-5 mx-5',  # Flexbox container for alignment and spacing
             children=[
                 # Left Section: Text
                 html.Div(
@@ -301,20 +302,7 @@ layout = html.Div(
                 "border": "1px solid #e5e7eb",
                 "marginBottom": "30px",
             },
-        )
-
-        ,
-
-        # Header with Title
-        dbc.Container([
-            dbc.Row([
-                dbc.Col(html.H3("General Overview", className="text-center my-4 display-3",
-                                style={"font-weight": "600",
-                                       "font-size": "100px", "font-family": "serif"}),
-                        style={'margin-top': '80px', "padding-left": "261px"}, width=10)
-            ], justify="left"),
-        ]),
-
+        ),
         # Spike Map (mapbox) Visualization
         dbc.Row([
             dbc.Col(
@@ -381,7 +369,7 @@ layout = html.Div(
                             "margin-top": "72px"
                         }),
                         dbc.Col([
-                            html.H3("Barcelona's Faculties Map Distribution", className="text-center my-3"),
+                            html.H3("Barcelona's Faculties Map Distribution", className="text-center my-3", style={"font-size":"28px"}),
                             html.P("Geolocation of UB faculties scores", className="text-center lead"),
                             html.Div(id="spike-map", style={"width": "100%", "height": "535px", "position": "relative"})
                         ], width=9, className="map-container"),
@@ -423,7 +411,7 @@ layout = html.Div(
         dbc.Row([
             dbc.Col(
                 html.Div([
-                    html.H3("Distribution of the scores between faculties", className="text-center my-3"),
+                    html.H3("Distribution of the scores between faculties", className="text-center my-3", style={'font-size': "25px"}),
                     html.P("Click on any given node to expand the flow of each score.",
                            className="text-center lead"),
                     dcc.Graph(id='sankey-chart', config={'displayModeBar': False}, className="dash-graph")
@@ -440,7 +428,8 @@ layout = html.Div(
                             html.H3(
                                 "Size comparison",
                                 id="map-title",
-                                className="text-center my-3"
+                                className="text-center my-3",
+                                style={'font-size': '25px'}
                             ),
 
                             # Chart type toggle (Radio buttons)
@@ -557,7 +546,7 @@ layout = html.Div(
                         ],
                         className="graph-container"
                     ),
-                    width=6  # Left column with graph occupies 50% space
+                    width=8  # Left column with graph occupies 70% space
                 ),
 
                 # Right column with text block
@@ -568,7 +557,7 @@ layout = html.Div(
                             dbc.CardBody(
                                 [
                                     html.H4(
-                                        "Why Breaking AI into Four Dimensions Matters",
+                                        "Breaking AI Apart",
                                         style={
                                             "fontSize": "1.8rem",
                                             "fontWeight": "600",
@@ -584,8 +573,7 @@ layout = html.Div(
                                     html.P(
                                         [
                                             "Dividing AI integration into ",
-                                            html.Strong("four dimensions"),
-                                            " — ",
+                                            html.Strong("four dimensions: "),
                                             html.Span("Knowledge", style={"color": "#b91c1c", "fontWeight": "bold"}),
                                             ", ",
                                             html.Span("Uses", style={"color": "#6b21a8", "fontWeight": "bold"}),
@@ -593,11 +581,10 @@ layout = html.Div(
                                             html.Span("Perceptions", style={"color": "#15803d", "fontWeight": "bold"}),
                                             ", and ",
                                             html.Span("Training", style={"color": "#b45309", "fontWeight": "bold"}),
-                                            " — provides a ",
+                                            " provides a ",
                                             html.Strong("clearer and more strategic perspective"),
                                             " on how educators engage with emerging technologies. ",
                                             "Instead of relying on a single overall score that can obscure critical nuances, this multidimensional view ",
-                                            html.Strong("separates causes from effects"),
                                             ", exposes hidden gaps, and ",
                                             html.Strong("pinpoints where interventions will have the greatest impact"),
                                             ". ",
@@ -610,8 +597,6 @@ layout = html.Div(
                                             html.Em("conceptual understanding"),
                                             ", improving ",
                                             html.Em("practical application"),
-                                            ", reshaping ",
-                                            html.Em("attitudes and expectations"),
                                             ", or addressing ",
                                             html.Em("training priorities"),
                                             ". ",
@@ -620,17 +605,6 @@ layout = html.Div(
                                             "The result is a more ",
                                             html.Strong("targeted, equitable, and effective approach"),
                                             " to fostering meaningful AI adoption in higher education.",
-                                            html.Br(),
-                                            html.Br(),
-                                            "Moreover, this framework allows institutions to ",
-                                            html.Strong("track progress over time"),
-                                            " and make ",
-                                            html.Em("evidence-based comparisons"),
-                                            " between faculties. By mapping how each dimension evolves, decision-makers can ",
-                                            html.Strong("anticipate future needs"),
-                                            ", allocate resources more intelligently, and build ",
-                                            html.Em("long-term strategies"),
-                                            ". ",
                                         ],
                                         className="text-justify",
                                         style={
@@ -656,7 +630,7 @@ layout = html.Div(
                             "boxShadow": "0 2px 8px rgba(0, 0, 0, 0.05)"
                         }
                     ),
-                    width=6
+                    width=4
                 )
             ],
             justify="center",

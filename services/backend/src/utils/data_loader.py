@@ -7,16 +7,16 @@ short_name_mapping = {
     "Biologia": "Biology",
     "Ciències de la Terra": "Earth Sciences",
     "Dret": "Law",
-    "Economia i Empresa": "Economics",
+    "Economia i Empresa": "Economics and Bussines",
     "Educació": "Education",
     "Farmàcia i Ciències de la Alimentació": "Pharmacy",
     "Filologia i Comunicació": "Philology",
     "Filosofia": "Philosophy",
     "Física": "Physics",
-    "Geografia i Història": "Geography",
-    "Informació i Mitjans Audiovisuals": "Media",
+    "Geografia i Història": "Geography and History",
+    "Informació i Mitjans Audiovisuals": "Audiovisual Media",
     "Infermeria": "Nursing",
-    "Matemàtiques i Informàtica": "Maths & CS",
+    "Matemàtiques i Informàtica": "Maths and CS",
     "Medicina i Ciències de la Salut": "Medicine",
     "Psicologia": "Psychology",
     "Química": "Chemistry"
@@ -64,13 +64,28 @@ ia_knowledge_mapping = {
 }
 
 ia_normative_ub_mapping = {
-    "Sí, hi ha una normativa per estudiants i professorat": "Yes, there is a normative for students and teachers",
-    "Sí, hi ha una guia amb orientacions per al professorat": "Yes, there is a guide for teachers",
-    "No hi ha cap guia ni cap normativa a la UB": "There is no guide or normative at UB",
-    "Ho desconec": "I don't know"
+    "Sí hi ha una normativa o orientació": "Yes, there is a guide or normative",
+    "Desconec si hi ha una normativa o orientació": "I ignore if there's a guide or normative",
+    "No hi ha una normativa o orientació": "There is no guide or normative",
 }
 
 ia_normative_read_mapping = {"Si": "Yes", "No": "No"}
+
+# Interest in AI knowledge for teaching and research
+interest_knowledge_teaching_and_research_mapping = {
+    "No vull saber res de la IA": "I don't want to know anything",
+    "Tinc molt d'interès": "I have a lot of interest",
+    "Tinc poc interès": "I have little interest",
+    "Tinc un interès moderat": "I have moderate interest"
+}
+
+# Knowledge about AI in teaching
+knowledge_in_common_mapping = {
+    "D'acord": "Agree",
+    "En desacord": "Disagree",
+    "Molt d'acord": "Strongly agree",
+    "Molt en desacord": "Strongly disagree"
+}
 
 uses_teaching_mapping = {
     "Preparar i planificar les classes": "Prepare and plan classes",
@@ -208,6 +223,14 @@ def load_surveys_data():
     surveys_df["ia_knowledge"] = surveys_df["ia_knowledge"].map(ia_knowledge_mapping)
     surveys_df["ia_normative_ub"] = surveys_df["ia_normative_ub"].map(ia_normative_ub_mapping)
     surveys_df["ia_normative_read"] = surveys_df["ia_normative_read"].map(ia_normative_read_mapping)
+    surveys_df["interest_knowledge_teaching_and_research"] = surveys_df["interest_knowledge_teaching_and_research"].map(
+        interest_knowledge_teaching_and_research_mapping)
+    surveys_df["knowledge_in_teaching"] = surveys_df["knowledge_in_teaching"].map(knowledge_in_common_mapping)
+    surveys_df["knowledge_in_evaluation"] = surveys_df["knowledge_in_evaluation"].map(knowledge_in_common_mapping)
+    surveys_df["knowledge_in_material_creation"] = surveys_df["knowledge_in_material_creation"].map(
+        knowledge_in_common_mapping)
+    surveys_df["knowledge_in_research"] = surveys_df["knowledge_in_research"].map(knowledge_in_common_mapping)
+
     surveys_df["uses_ia_in_teaching"] = surveys_df["uses_ia_in_teaching"].map(uses_teaching_mapping)
     surveys_df["uses_ia_in_research"] = surveys_df["uses_ia_in_research"].map(uses_research_mapping)
     surveys_df["uses_ia_in_creation"] = surveys_df["uses_ia_in_creation"].map(uses_creation_mapping)

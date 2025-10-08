@@ -65,7 +65,7 @@ footer = html.Footer(
         html.Div("Data collected and analyzed by a Teaching Innovation Project (mapAI-UB)",
                  style={"text-align": "center", "color": "white"})
     ],
-    style={"background-color": "#343a40", "padding": "10px 0", "margin-top": "auto", "position": "sticky",
+    style={"background-color": "#343a40", "padding": "3px 0", "margin-top": "auto", "margin-bottom": '-5px',
            "bottom": "0"}
 )
 

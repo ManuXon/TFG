@@ -67,7 +67,7 @@ def register_callbacks(app):
             layers=[spike_layer],
             initial_view_state=view_state,
             map_provider='mapbox',
-            map_style="mapbox://styles/mapbox/satellite-streets-v12",
+            map_style="mapbox://styles/mapbox/outdoors-v12",
             tooltip={"text": "{faculty_name}: {category_score}"},
             api_keys={
                 "mapbox": "pk.eyJ1IjoibWFudS11YiIsImEiOiJjbTN0M2E4bDcwNTdjMmxzZjUxZzEwd3YwIn0.nP8eJ0etV09R51KoBC47FA"}

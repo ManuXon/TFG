@@ -71,28 +71,197 @@ const KnowledgeBarChart = ({ facultyName }: { facultyName: string }) => {
   if (!data) return <p className="text-gray-500">Loading knowledge data...</p>;
 
   return (
+  <Plot
+    data={[
+      {
+        x: data.categories,
+        y: data.values,
+        type: 'bar',
+        marker: { color: '#b91c1c' },
+      },
+    ]}
+    layout={{
+      title: {
+        text: 'Self-assessment of AI Knowledge',
+        font: { size: 20, color: '#334155' },
+        xref: 'paper',
+        x: 0.5, // center align
+      },
+      xaxis: {
+        title: {
+          text: 'Knowledge Assessment',
+          font: { size: 14, color: '#334155' },
+          standoff: 20,
+        },
+        categoryorder: 'array',
+        categoryarray: data.categories,
+        tickfont: { color: '#334155', size: 10 },
+      },
+      yaxis: {
+        title: {
+          text: 'Occurrences',
+          font: { size: 14, color: '#334155' },
+        },
+        tickfont: { color: '#334155' },
+      },
+      margin: { t: 80, l: 70, r: 40, b: 70 },
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+    }}
+    style={{ width: '100%', height: '380px' }}
+    config={{ displayModeBar: false }}
+  />
+);
+
+};
+
+const NormativePieChart = ({ facultyName }: { facultyName: string }) => {
+  const [data, setData] = useState<{ categories: string[]; values: number[] } | null>(null);
+
+  useEffect(() => {
+    fetch(`http://localhost:8000/api/faculty/${facultyName}/normative-distribution`)
+      .then((res) => res.json())
+      .then(setData)
+      .catch((err) => console.error('Error fetching normative data:', err));
+  }, [facultyName]);
+
+  if (!data) return <p className="text-gray-500">Loading normative data...</p>;
+
+    // Define short labels mapping
+  const shortLabels: Record<string, string> = {
+    "Yes, there is a guide or normative": "Yes",
+    "I ignore if there's a guide or normative": "Don't know",
+    "There is no guide or normative": "No",
+  };
+
+  // Map long labels to short ones (but keep full text for hover)
+  const displayLabels = data.categories.map(cat => shortLabels[cat] || cat);
+  return (
     <Plot
       data={[
         {
-          x: data.categories,
-          y: data.values,
-          type: 'bar',
-          marker: { color: '#b91c1c' },
+          labels: displayLabels, // shorter labels for chart
+          values: data.values,
+          type: 'pie',
+          textinfo: 'label+percent',
+          hoverinfo: 'text+percent',
+          text: data.categories, // original long text shown in hover if needed
+          marker: {
+          colors: ['#05cc25', '#e01717', '#ffed45'],
+          },
         },
       ]}
       layout={{
-        title: `${facultyName} – AI Knowledge Levels`,
-        xaxis: { title: 'Knowledge Level', categoryorder: 'array', categoryarray: data.categories },
-        yaxis: { title: 'Number of Respondents' },
-        margin: { t: 50, l: 50, r: 20, b: 50 },
+        title: {
+          text: 'Is there any guide or normative at UB?',
+          font: { size: 18, color: '#334155' },
+          xref: 'paper',
+          x: 0.2,
+        },
+        showlegend: true,
+        legend: {
+          orientation: 'v',
+          x: 1,
+          y: 0.5,
+          font: { color: '#334155' },
+        },
+        margin: { t: 60, l: 20, r: 20, b: 20 },
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
       }}
-      style={{ width: '100%', height: '400px' }}
+      style={{ width: '100%', height: '350px' }}
       config={{ displayModeBar: false }}
     />
   );
 };
+
+const InterestKnowledgeLinkChart = ({ facultyName }: { facultyName: string }) => {
+  const [data, setData] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch(`http://localhost:8000/api/faculty/${facultyName}/interest-knowledge-link`)
+      .then((res) => res.json())
+      .then(setData)
+      .catch((err) => console.error("Error fetching interest-knowledge link data:", err));
+  }, [facultyName]);
+
+  if (!data.length) return <p className="text-gray-500">Loading correlation data...</p>;
+
+  const interests = data.map((d) => d.interest);
+
+  const traces = [
+    {
+      y: interests,
+      x: data.map((d) => d.knowledge_in_teaching),
+      name: "Teaching",
+      type: "bar",
+      orientation: "h",
+      marker: { color: "#1d4ed8" },
+    },
+    {
+      y: interests,
+      x: data.map((d) => d.knowledge_in_research),
+      name: "Research",
+      type: "bar",
+      orientation: "h",
+      marker: { color: "#9333ea" },
+    },
+    {
+      y: interests,
+      x: data.map((d) => d.knowledge_in_material_creation),
+      name: "Material Creation",
+      type: "bar",
+      orientation: "h",
+      marker: { color: "#f59e0b" },
+    },
+    {
+      y: interests,
+      x: data.map((d) => d.knowledge_in_evaluation),
+      name: "Evaluation",
+      type: "bar",
+      orientation: "h",
+      marker: { color: "#16a34a" },
+    },
+  ];
+
+  return (
+    <Plot
+      data={traces}
+      layout={{
+        barmode: "group",
+        title: {
+          text: "Relation between AI Knowledge Interest and Areas",
+          font: { size: 18, color: "#334155" },
+        },
+        xaxis: {
+          title: "Average Agreement Level (1–4)",
+          range: [0, 4],
+          tickvals: [1, 2, 3, 4],
+
+        },
+        yaxis: {
+          title: "Interest in AI",
+          automargin: true,
+          tickfont: { size: 9 },
+        },
+        margin: { t: 60, l: 160, r: 20, b: 60 },
+        legend: {
+          orientation: "h",
+          y: -0.3,
+          x: 0.5,
+          xanchor: "center",
+          font: { color: "#334155" },
+        },
+        paper_bgcolor: "rgba(0,0,0,0)",
+        plot_bgcolor: "rgba(0,0,0,0)",
+      }}
+      config={{ displayModeBar: false }}
+      style={{ width: "100%", height: "700px" }}
+    />
+  );
+};
+
+
 
 // -------------------------
 // Faculty Visualization Component
@@ -197,8 +366,23 @@ const FacultyVisualization: React.FC<{ faculty: Faculty; onBack: () => void }> =
                     <div className="p-6 border-t" style={{ borderColor: `${area.color}30` }}>
                       <div className="min-h-[400px] bg-slate-50 rounded-xl p-8 border-2 border-dashed border-slate-200">
                         {area.name === 'Knowledge' ? (
-                          <KnowledgeBarChart facultyName={faculty.name} />
-                        ) : (
+                        <div className="flex flex-col lg:flex-row gap-6">
+                          {/* LEFT SIDE */}
+                          <div className="flex-1 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                            <InterestKnowledgeLinkChart facultyName={faculty.name} />
+                          </div>
+
+                          {/* RIGHT SIDE */}
+                          <div className="flex flex-col w-full lg:w-1/2 gap-6">
+                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <KnowledgeBarChart facultyName={faculty.name} />
+                            </div>
+                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <NormativePieChart facultyName={faculty.name} />
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
                           <div className="text-center py-16">
                             <div
                               className="inline-flex p-4 rounded-full mb-4"

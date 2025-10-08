@@ -1,7 +1,11 @@
 from fastapi import APIRouter
 import pandas as pd
+
 import numpy as np
 from src.utils.data_loader import load_surveys_data, load_faculties_data
+import logging
+
+logger = logging.getLogger("uvicorn")
 
 router = APIRouter(prefix="/api", tags=["Visualizations"])
 
@@ -159,3 +163,62 @@ def sankey_data():
     """Return data for Sankey chart (faculty, gender, experience, etc.)."""
     data = get_sankey_chart_data()
     return data
+
+@router.get("/faculty/{faculty_name}/normative-distribution")
+def get_normative_distribution(faculty_name: str):
+    df = surveys_df[surveys_df["faculty_name"] == faculty_name]
+
+    # The column that contains the normative responses
+    column = "ia_normative_ub"
+
+    distribution = df["ia_normative_ub"].value_counts().to_dict()
+
+    return {
+        "categories": list(distribution.keys()),
+        "values": list(distribution.values())
+    }
+
+@router.get("/faculty/{faculty_name}/interest-knowledge-link")
+def get_interest_knowledge_link(faculty_name: str):
+    df = surveys_df[surveys_df["faculty_name"] == faculty_name].copy()
+
+    agreement_map = {
+        "Strongly disagree": 1,
+        "Disagree": 2,
+        "Agree": 3,
+        "Strongly agree": 4
+    }
+
+    df["interest"] = df["interest_knowledge_teaching_and_research"]
+    logger.info(df[["knowledge_in_teaching", "knowledge_in_research"]].head(5).to_string())
+    # Normalize + map agreement columns
+    for col in [
+        "knowledge_in_teaching",
+        "knowledge_in_research",
+        "knowledge_in_material_creation",
+        "knowledge_in_evaluation",
+    ]:
+        df[col] = df[col].map(agreement_map)
+
+    grouped = (
+        df.groupby("interest")[[
+            "knowledge_in_teaching",
+            "knowledge_in_research",
+            "knowledge_in_material_creation",
+            "knowledge_in_evaluation"
+        ]]
+        .mean()
+        .reset_index()
+    )
+
+    # Clean for JSON serialization
+    grouped = grouped.replace([float("inf"), float("-inf")], None).fillna(0)
+    grouped = grouped.astype({
+        "knowledge_in_teaching": float,
+        "knowledge_in_research": float,
+        "knowledge_in_material_creation": float,
+        "knowledge_in_evaluation": float,
+    })
+
+    return grouped.to_dict(orient="records")
+

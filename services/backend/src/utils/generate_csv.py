@@ -38,10 +38,14 @@ teaching_modes = ["Únicament presencial", "Únicament virtual", "Presencial i v
 # IA Knowledge
 ia_knowledge_levels = ["Cap coneixement", "Poc coneixement", "Bon coneixement", "Coneixement expert"]
 
-ia_normative_ub = ["Sí, hi ha una normativa per estudiants i professorat",
-                   "Sí, hi ha una guia amb orientacions per al professorat",
-                   "No hi ha cap guia ni cap normativa a la UB",
-                   "Ho desconec"]
+interest_knowledge_teaching_and_research = ["No vull saber res de la IA", "Tinc molt d'interès", "Tinc poc interès", "Tinc un interès moderat"]
+knowledge_in_teaching = ["D'acord", "En desacord", "Molt d'acord", "Molt en desacord"]
+knowledge_in_evaluation = ["D'acord", "En desacord", "Molt d'acord", "Molt en desacord"]
+knowledge_in_material_creation = ["D'acord", "En desacord", "Molt d'acord", "Molt en desacord"]
+knowledge_in_research = ["D'acord", "En desacord", "Molt d'acord", "Molt en desacord"]
+ia_normative_ub = ["Sí hi ha una normativa o orientació",
+                   "Desconec si hi ha una normativa o orientació",
+                   "No hi ha una normativa o orientació"]
 
 ia_normative_read = ["Si", "No"]
 
@@ -103,6 +107,11 @@ for faculty in faculties:
             "ia_knowledge": random.choice(ia_knowledge_levels),
             "ia_normative_ub": random.choice(ia_normative_ub),
             "ia_normative_read": random.choice(ia_normative_read),
+            "interest_knowledge_teaching_and_research": random.choice(interest_knowledge_teaching_and_research),
+            "knowledge_in_evaluation": random.choice(knowledge_in_evaluation),
+            "knowledge_in_teaching": random.choice(knowledge_in_teaching),
+            "knowledge_in_material_creation": random.choice(knowledge_in_material_creation),
+            "knowledge_in_research": random.choice(knowledge_in_research),
             # USES
             "uses_ia_in_teaching": random.choice(uses_teaching),
             "uses_ia_in_research": random.choice(uses_research),
