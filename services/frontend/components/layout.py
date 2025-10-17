@@ -8,19 +8,21 @@ layout = html.Div(
         'flex-direction': 'column',
         'min-height': '100vh',  # Ensure it spans the viewport height
         'background-color': '#f8f9fa',  # Optional: set a background color
-        'overflow-x': 'auto',
+        'overflow-x': 'clip',
     },
     children=[
         # Main Section: Introductory Content
         dbc.Container(
-            className='d-flex align-items-center gap-6 my-5 mx-5',  # Flexbox container for alignment and spacing
+            className='d-flex align-items-center gap-6 my-5 mx-7',  # Flexbox container for alignment and spacing
             children=[
                 # Left Section: Text
                 html.Div(
                     className='d-flex flex-column gap-3',
                     style={
-                        'flex': '1 0 69%',  # Allow text to occupy 60% of the space
-                        'max-width': '69%'  # Prevent the text container from growing too large
+                        'flex': '1 0 60%',  # Allow text to occupy 60% of the space
+                        'max-width': '60%'  # Prevent the text container from growing too large
+                        'padding-right:' '0px',
+                        'padding-left': '4px'
                     },
                     children=[
                         html.H2(
@@ -31,12 +33,13 @@ layout = html.Div(
                                 html.Span("Barcelona", style={"color": "#3E85EE"}),  # Same color
                                 "."
                             ],
-                            className='text-dark display-2 fw-bold lh-tight'
+                            className='text-dark display-1 fw-bold lh-tight'
                         ),
                         html.P(
                             "Discover how AI is revolutionizing education at the UB. Dive into the latest data-driven visualizations "
                             "gathered by the researchers of MapAI.",
-                            className='text-muted fw-large'
+                            className='text-muted fw-large',
+                            style={'padding-right': '10px'}
                         ),
                         html.Div(
                             html.Button(
@@ -66,8 +69,8 @@ layout = html.Div(
                 html.Div(
                     className='position-relative',
                     style={
-                        'flex': '1 1 40%',  # Allow image to occupy 40% of the space
-                        'max-width': '40%'  # Prevent the image container from growing too large
+                        'flex': '1 1 72%',  # Allow image to occupy 40% of the space
+                        'max-width': '72%'  # Prevent the image container from growing too large
                     },
                     children=[
                         html.Img(
@@ -78,7 +81,7 @@ layout = html.Div(
                                 'width': '100%',  # Ensures image scales to container width
                                 'height': 'auto',  # Maintain aspect ratio
                                 'object-fit': 'contain',  # Fit within the container bounds
-                                'border-radius': '10%'
+                                'border-radius': '13%'
                             }
                         )
                     ]
@@ -86,13 +89,12 @@ layout = html.Div(
             ],
             style={
                 'display': 'flex',
-                'gap': '2px',
+                'gap': '11px',
                 'align-items': 'center',
                 'justify-content': 'space-between',
-                'width': '100%',  # Stretch the main section across the entire width
-                'margin-left': '0',  # No extra margin
-                'margin-right': '20px',  # Slight margin for spacing
-                'padding': '0px 0px 0px 40px'
+                'max-width': '100%',  # Stretch the main section across the entire width
+                'margin-right': '0px',  # Slight margin for spacing
+                'padding': '0px 24px 0px 70px'
             }
         ),
         dbc.Card(
@@ -286,6 +288,8 @@ layout = html.Div(
                                             "color": "#4A4A4A",
                                             "whiteSpace": "pre-line",
                                             "padding": "0 5px",
+                                            "text-align": "justify",
+                                            "padding-right":"70px"
                                         },
                                     ),
                                 ]
@@ -328,7 +332,6 @@ layout = html.Div(
                                     {"label": "Female", "value": "Female"},
                                     {"label": "Male", "value": "Male"},
                                     {"label": "Non-binary", "value": "Non-binary"},
-                                    {"label": "Others", "value": "Others"},
                                     {"label": "No answer", "value": "No answer"}
                                 ],
                                 placeholder="Select gender",
@@ -338,10 +341,10 @@ layout = html.Div(
                             dcc.Dropdown(
                                 id="teaching-experience-dropdown",
                                 options=[
-                                    {"label": "Less than 5 years", "value": "Less than 5 years"},
-                                    {"label": "Between 5 and 10 years", "value": "Between 5 and 10 years"},
-                                    {"label": "Between 10 and 20 years", "value": "Between 10 and 20 years"},
-                                    {"label": "More than 20 years", "value": "More than 20 years"}
+                                    {"label": "Less than 5 years", "value": "Less than 5"},
+                                    {"label": "Between 5 and 10 years", "value": "Between 5 and 10"},
+                                    {"label": "Between 11 and 20 years", "value": "Between 11 and 20"},
+                                    {"label": "More than 20 years", "value": "More than 20"}
                                 ],
                                 placeholder="Select teaching experience",
                                 value=None,
@@ -350,15 +353,12 @@ layout = html.Div(
                             dcc.Dropdown(
                                 id="ub-profile-dropdown",
                                 options=[
+                                    {"label": "Senior Lecturer", "value": "Senior Lecturer"},
                                     {"label": "Associate", "value": "Associate"},
-                                    {"label": "PreDoc", "value": "PreDoc"},
-                                    {"label": "Permanent Collaborator", "value": "Permanent Collaborator"},
-                                    {"label": "Permanent Doctor Collaborator",
-                                     "value": "Permanent Doctor Collaborator"},
+                                    {"label": "Permanent Collaborator", "value": "Collab"},
                                     {"label": "Lecturer", "value": "Lecturer"},
+                                    {"label": "PreDoc", "value": "PreDoc"},
                                     {"label": "PostDoc", "value": "PostDoc"},
-                                    {"label": "Aggregate", "value": "Aggregate"},
-                                    {"label": "Tenured", "value": "Tenured"},
                                     {"label": "Professor", "value": "Professor"}
                                 ],
                                 placeholder="Select profile",
@@ -369,13 +369,33 @@ layout = html.Div(
                             "margin-top": "72px"
                         }),
                         dbc.Col([
-                            html.H3("Barcelona's Faculties Map Distribution", className="text-center my-3", style={"font-size":"28px"}),
+                            html.H3("Barcelona's Faculties Map Distribution", className="text-center my-3", style={"font-size":"33px"}),
                             html.P("Geolocation of UB faculties scores", className="text-center lead"),
-                            html.Div(id="spike-map", style={"width": "100%", "height": "535px", "position": "relative"})
+                            html.Div(id="spike-map", style={"width": "100%", "height": "700px", "position": "relative"})
                         ], width=9, className="map-container"),
-                        dbc.Col([
-                            html.Div(id="map-legend", className="legend-container mt-3")
-                        ], width=3, className="legend-container", style={"margin-top": "-360px"}),
+                        dbc.Col(
+                            [
+                                html.Div(
+                                    id="map-legend",
+                                    className="legend-container d-flex flex-column justify-content-between mt-3",
+                                    style={
+                                        "flex": "1",
+                                        "display": "flex",
+                                        "flex-direction": "column",
+                                        "justify-content": "space-between",
+                                    }
+
+                                )
+                            ],
+                            width=3,
+                            className="d-flex flex-column",
+                            style={
+                                "height": "100%",  # expand to available height
+                                "alignSelf": "stretch",  # let it fill parent height if possible
+                                "marginTop": "-528px",  # keep your visual offset (if really needed)
+                                'height': '518px'
+                            }
+                        ),
                         dbc.Col([html.Div([
                             dcc.Graph(id="bar-graph", config={"displayModeBar": False}),
                             html.Div([
@@ -461,7 +481,6 @@ layout = html.Div(
                                                 {"label": "Female", "value": "Female"},
                                                 {"label": "Male", "value": "Male"},
                                                 {"label": "Non-binary", "value": "Non-binary"},
-                                                {"label": "Others", "value": "Others"},
                                                 {"label": "No answer", "value": "No answer"}
                                             ],
                                             placeholder="Select gender",
@@ -475,11 +494,11 @@ layout = html.Div(
                                         dcc.Dropdown(
                                             id="teaching-experience-dropdown-b",
                                             options=[
-                                                {"label": "Less than 5 years", "value": "Less than 5 years"},
-                                                {"label": "Between 5 and 10 years", "value": "Between 5 and 10 years"},
-                                                {"label": "Between 10 and 20 years",
-                                                 "value": "Between 10 and 20 years"},
-                                                {"label": "More than 20 years", "value": "More than 20 years"}
+                                                {"label": "Less than 5 years", "value": "Less than 5"},
+                                                {"label": "Between 5 and 10 years", "value": "Between 5 and 10"},
+                                                {"label": "Between 11 and 20 years",
+                                                 "value": "Between 11 and 20"},
+                                                {"label": "More than 20 years", "value": "More than 20"}
                                             ],
                                             placeholder="Select teaching experience",
                                             value=None,
@@ -491,15 +510,12 @@ layout = html.Div(
                                         dcc.Dropdown(
                                             id="ub-profile-dropdown-b",
                                             options=[
+                                                {"label": "Senior Lecturer", "value": "Senior Lecturer"},
                                                 {"label": "Associate", "value": "Associate"},
-                                                {"label": "PreDoc", "value": "PreDoc"},
-                                                {"label": "Permanent Collaborator", "value": "Permanent Collaborator"},
-                                                {"label": "Permanent Doctor Collaborator",
-                                                 "value": "Permanent Doctor Collaborator"},
+                                                {"label": "Permanent Collaborator", "value": "Collab"},
                                                 {"label": "Lecturer", "value": "Lecturer"},
+                                                {"label": "PreDoc", "value": "PreDoc"},
                                                 {"label": "PostDoc", "value": "PostDoc"},
-                                                {"label": "Aggregate", "value": "Aggregate"},
-                                                {"label": "Tenured", "value": "Tenured"},
                                                 {"label": "Professor", "value": "Professor"}
                                             ],
                                             placeholder="Select profile",

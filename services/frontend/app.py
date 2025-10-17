@@ -5,8 +5,7 @@ from components.callbacks import register_callbacks
 from components.layout import layout  # Import the layout from layout.py
 
 # Load external stylesheets (Bootstrap and custom CSS)
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, "custom.css",
-                                                "https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/3.4.11/tailwind.min.css"], suppress_callback_exceptions=True)
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, "custom.css"], suppress_callback_exceptions=True)
 
 # Header
 # Header with logo on the right

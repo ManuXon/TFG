@@ -139,7 +139,7 @@ button, .btn {
     border: 1px solid #ddd;
     border-radius: 10px;
     background-color: #ffffff;
-    padding: 15px;
+    padding: 0px;
 }
 #spike-map {
     position: relative;

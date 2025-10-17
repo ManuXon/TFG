@@ -38,6 +38,10 @@ teaching_modes = ["Únicament presencial", "Únicament virtual", "Presencial i v
 # IA Knowledge
 ia_knowledge_levels = ["Cap coneixement", "Poc coneixement", "Bon coneixement", "Coneixement expert"]
 
+# IA Knowledge Applications
+ia_knowledge_creating_text = ["No en conec cap", "En conec algunes", "En conec bastantes", "En conec moltes"]
+
+
 interest_knowledge_teaching_and_research = ["No vull saber res de la IA", "Tinc molt d'interès", "Tinc poc interès", "Tinc un interès moderat"]
 knowledge_in_teaching = ["D'acord", "En desacord", "Molt d'acord", "Molt en desacord"]
 knowledge_in_evaluation = ["D'acord", "En desacord", "Molt d'acord", "Molt en desacord"]
@@ -107,11 +111,20 @@ for faculty in faculties:
             "ia_knowledge": random.choice(ia_knowledge_levels),
             "ia_normative_ub": random.choice(ia_normative_ub),
             "ia_normative_read": random.choice(ia_normative_read),
-            "interest_knowledge_teaching_and_research": random.choice(interest_knowledge_teaching_and_research),
-            "knowledge_in_evaluation": random.choice(knowledge_in_evaluation),
-            "knowledge_in_teaching": random.choice(knowledge_in_teaching),
-            "knowledge_in_material_creation": random.choice(knowledge_in_material_creation),
-            "knowledge_in_research": random.choice(knowledge_in_research),
+            # IA Knowledge Functionalities
+            "ia_knowledge_text_creation": random.choice(ia_knowledge_creating_text),
+            "ia_knowledge_multimedia_creation": random.choice(ia_knowledge_creating_text),
+            "ia_knowledge_class_planning": random.choice(ia_knowledge_creating_text),
+            "ia_knowledge_material_design": random.choice(ia_knowledge_creating_text),
+            "ia_knowledge_activity_design": random.choice(ia_knowledge_creating_text),
+            "ia_knowledge_evaluation": random.choice(ia_knowledge_creating_text),
+            "ia_knowledge_research_management": random.choice(ia_knowledge_creating_text),
+            "ia_knowledge_data_collection": random.choice(ia_knowledge_creating_text),
+            "ia_knowledge_transcription_translation": random.choice(ia_knowledge_creating_text),
+            "ia_knowledge_data_analysis": random.choice(ia_knowledge_creating_text),
+            "ia_knowledge_technical_support": random.choice(ia_knowledge_creating_text),
+            "ia_knowledge_ai_experiments": random.choice(ia_knowledge_creating_text),
+            "ia_knowledge_inclusion_support": random.choice(ia_knowledge_creating_text),
             # USES
             "uses_ia_in_teaching": random.choice(uses_teaching),
             "uses_ia_in_research": random.choice(uses_research),

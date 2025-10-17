@@ -1,9 +1,18 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
+from fastapi.responses import FileResponse
+from typing import Optional
+from wordcloud import WordCloud, STOPWORDS
+from PIL import Image
+import numpy as np
 import pandas as pd
 
+import os
+
+
 import numpy as np
-from src.utils.data_loader import load_surveys_data, load_faculties_data
+from src.utils.data_loader import load_surveys_data, load_faculties_data, df_to_json_safe
 import logging
+
 
 logger = logging.getLogger("uvicorn")
 
@@ -69,14 +78,83 @@ def get_spike_map_data(category: str = "All", gender: str | None = None, teachin
     grouped["color_rgb"] = grouped["color_rgb_tuple"].apply(list)
     grouped.drop(columns=["color_rgb_tuple"], inplace=True)
 
-    return grouped.to_dict(orient="records")
+    # Use the helper to return safe JSON
+    return df_to_json_safe(grouped)
 
 @router.get("/faculty/{faculty_name}/knowledge-distribution")
-def knowledge_distribution(faculty_name: str):
-    df = surveys_df[surveys_df["faculty_name"] == faculty_name]
-    levels = ["No knowledge", "Little knowledge", "Good knowledge", "Expert knowledge"]
-    counts = [df[df["ia_knowledge"] == lvl].shape[0] for lvl in levels]
-    return {"categories": levels, "values": counts}
+def knowledge_distribution(
+    faculty_name: str,
+    demographic1: str = "gender",
+    demographic2: str | None = None,
+):
+    df = surveys_df[surveys_df["faculty_name"] == faculty_name].copy()
+
+    # Map textual knowledge → numeric 1–4
+    knowledge_map = {
+        "No knowledge": 1,
+        "Little knowledge": 2,
+        "Good knowledge": 3,
+        "Expert knowledge": 4,
+    }
+    df["knowledge_num"] = df["ia_knowledge"].map(knowledge_map)
+
+    col_map = {
+        "gender": "gender",
+        "experience": "teaching_experience",
+        "profile": "ub_profile",
+    }
+    if demographic1 not in col_map:
+        return {"error": f"Invalid demographic: {demographic1}"}
+
+    col1 = col_map[demographic1]
+    col2 = col_map.get(demographic2) if demographic2 else None
+
+    # Single demographic → mean per category (normalized)
+    if not col2:
+        grouped = (
+            df.groupby(col1)["knowledge_num"]
+            .mean()
+            .reset_index()
+            .rename(columns={col1: "category", "knowledge_num": "average_score"})
+        )
+        grouped["average_score"] = grouped["average_score"].astype(float).round(3)
+        return {
+            "mode": "single",
+            "demographics": [demographic1],
+            "categories": grouped["category"].tolist(),
+            "values": grouped["average_score"].tolist(),
+        }
+
+    # Dual demographic:
+    # 1) avg per (main, sub) + counts
+    g = (
+        df.groupby([col1, col2])["knowledge_num"]
+        .agg(mean_sub="mean", n_sub="size")
+        .reset_index()
+        .rename(columns={col1: "main", col2: "sub"})
+    )
+
+    # 2) total respondents per main group
+    g["n_main"] = g.groupby("main")["n_sub"].transform("sum")
+
+    # 3) main-group average
+    main_avg_map = df.groupby(col1)["knowledge_num"].mean().astype(float).to_dict()
+    g["main_avg"] = g["main"].map(main_avg_map)
+
+    # 4) weighted contribution so that sum_sub(contribution) == main_avg
+    # contribution = (mean_sub * n_sub) / n_main
+    g["contribution"] = (g["mean_sub"] * g["n_sub"]) / g["n_main"]
+    g = g.fillna(0.0)
+
+    for c in ["mean_sub", "main_avg", "contribution"]:
+        g[c] = g[c].astype(float)
+
+    return {
+        "mode": "dual",
+        "demographics": [demographic1, demographic2],
+        "data": g[["main", "sub", "mean_sub", "n_sub", "n_main", "main_avg", "contribution"]]
+        .to_dict(orient="records"),
+    }
 
 def get_sankey_chart_data():
     df = surveys_df.copy()
@@ -178,47 +256,164 @@ def get_normative_distribution(faculty_name: str):
         "values": list(distribution.values())
     }
 
-@router.get("/faculty/{faculty_name}/interest-knowledge-link")
-def get_interest_knowledge_link(faculty_name: str):
+@router.get("/faculty/{faculty_name}/knowledge-functionality-correlation")
+def get_knowledge_functionality_correlation(
+    faculty_name: str,
+    gender: Optional[str] = Query(None),
+    experience: Optional[str] = Query(None),
+    profile: Optional[str] = Query(None),
+):
     df = surveys_df[surveys_df["faculty_name"] == faculty_name].copy()
 
-    agreement_map = {
-        "Strongly disagree": 1,
-        "Disagree": 2,
-        "Agree": 3,
-        "Strongly agree": 4
+    # Apply demographic filters
+    if gender and gender != "All":
+        df = df[df["gender"] == gender]
+    if experience:
+        df = df[df["teaching_experience"] == experience]
+    if profile:
+        df = df[df["ub_profile"] == profile]
+
+    # --- 13 application columns ---
+    app_cols = [
+        "ia_knowledge_text_creation",
+        "ia_knowledge_multimedia_creation",
+        "ia_knowledge_class_planning",
+        "ia_knowledge_material_design",
+        "ia_knowledge_activity_design",
+        "ia_knowledge_evaluation",
+        "ia_knowledge_research_management",
+        "ia_knowledge_data_collection",
+        "ia_knowledge_transcription_translation",
+        "ia_knowledge_data_analysis",
+        "ia_knowledge_technical_support",
+        "ia_knowledge_ai_experiments",
+        "ia_knowledge_inclusion_support",
+    ]
+
+    # Map responses (so we can compute means)
+    app_map = {
+        "I don't know any": 1,
+        "I know a few": 2,
+        "I know several": 3,
+        "I know many": 4,
     }
 
-    df["interest"] = df["interest_knowledge_teaching_and_research"]
-    logger.info(df[["knowledge_in_teaching", "knowledge_in_research"]].head(5).to_string())
-    # Normalize + map agreement columns
-    for col in [
-        "knowledge_in_teaching",
-        "knowledge_in_research",
-        "knowledge_in_material_creation",
-        "knowledge_in_evaluation",
-    ]:
-        df[col] = df[col].map(agreement_map)
+    for col in app_cols:
+        df[col] = df[col].map(app_map)
 
+    # --- Group by the textual IA knowledge labels ---
     grouped = (
-        df.groupby("interest")[[
-            "knowledge_in_teaching",
-            "knowledge_in_research",
-            "knowledge_in_material_creation",
-            "knowledge_in_evaluation"
-        ]]
+        df.groupby("ia_knowledge")[app_cols]
         .mean()
         .reset_index()
     )
 
-    # Clean for JSON serialization
+    grouped.rename(columns={"ia_knowledge": "knowledge_label"}, inplace=True)
     grouped = grouped.replace([float("inf"), float("-inf")], None).fillna(0)
-    grouped = grouped.astype({
-        "knowledge_in_teaching": float,
-        "knowledge_in_research": float,
-        "knowledge_in_material_creation": float,
-        "knowledge_in_evaluation": float,
-    })
 
+    # Return the actual textual label
     return grouped.to_dict(orient="records")
 
+
+@router.get("/faculty/{faculty_name}/knowledge-applications-wordcloud-image")
+def knowledge_concept_cloud_image(
+    faculty_name: str,
+    gender: Optional[str] = Query(None),
+    experience: Optional[str] = Query(None),
+    profile: Optional[str] = Query(None),
+):
+    """
+    Generates and returns a rectangular word cloud image of AI functionalities,
+    where each word visually appears twice for density.
+    """
+
+    # --- Filter by faculty
+    df = surveys_df[surveys_df["faculty_name"] == faculty_name].copy()
+
+    # --- Apply filters
+    if gender and gender != "All":
+        df = df[df["gender"] == gender]
+    if experience:
+        df = df[df["teaching_experience"] == experience]
+    if profile:
+        df = df[df["ub_profile"] == profile]
+
+    # --- Mapping for knowledge levels
+    app_map = {
+        "I don't know any": 1,
+        "I know a few": 2,
+        "I know several": 3,
+        "I know many": 4,
+    }
+
+    # --- Application columns
+    app_columns = [
+        "ia_knowledge_text_creation",
+        "ia_knowledge_multimedia_creation",
+        "ia_knowledge_class_planning",
+        "ia_knowledge_material_design",
+        "ia_knowledge_activity_design",
+        "ia_knowledge_evaluation",
+        "ia_knowledge_research_management",
+        "ia_knowledge_data_collection",
+        "ia_knowledge_transcription_translation",
+        "ia_knowledge_data_analysis",
+        "ia_knowledge_technical_support",
+        "ia_knowledge_ai_experiments",
+        "ia_knowledge_inclusion_support",
+    ]
+
+    # --- Shorter, clearer one-word labels
+    name_map = {
+        "ia_knowledge_text_creation": "Text",
+        "ia_knowledge_multimedia_creation": "Media",
+        "ia_knowledge_class_planning": "Planning",
+        "ia_knowledge_material_design": "Design",
+        "ia_knowledge_activity_design": "Activity",
+        "ia_knowledge_evaluation": "Evaluation",
+        "ia_knowledge_research_management": "Research",
+        "ia_knowledge_data_collection": "Data",
+        "ia_knowledge_transcription_translation": "Translation",
+        "ia_knowledge_data_analysis": "Analysis",
+        "ia_knowledge_technical_support": "Support",
+        "ia_knowledge_ai_experiments": "AI",
+        "ia_knowledge_inclusion_support": "Inclusion",
+    }
+
+    # --- Map text to numeric and compute TOTAL frequencies
+    for col in app_columns:
+        df[col] = df[col].map(app_map).fillna(0)
+    total_scores = df[app_columns].sum().to_dict()
+
+    # --- Label → score dictionary
+    frequencies = {name_map[col]: float(score) for col, score in total_scores.items()}
+
+    # --- Output directory
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    img_dir = os.path.join(base_dir, "..", "img")
+    os.makedirs(img_dir, exist_ok=True)
+
+    output_path = os.path.join(img_dir, f"{faculty_name}_wordcloud.png")
+
+    # --- UB red→orange→yellow color palette (via matplotlib colormap)
+    # Equivalent to your frontend color palette
+    wc = WordCloud(
+        background_color="white",
+        colormap="inferno",  # 🔥 red–orange–yellow palette
+        width=1000,
+        height=400,
+        max_words=13,
+        prefer_horizontal=0.95,
+        relative_scaling=0.6,
+        repeat=True,
+        scale=3,
+        margin=8,
+        contour_width=0,
+        max_font_size=80,
+    ).generate_from_frequencies(frequencies)
+
+    # --- Save to file
+    wc.to_file(output_path)
+
+    # --- Return the image file
+    return FileResponse(output_path, media_type="image/png")

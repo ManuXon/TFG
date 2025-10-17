@@ -7,23 +7,23 @@ interface Faculty {
 }
 
 const faculties: Faculty[] = [
-  { "name": "Fine Arts", "color": "#FF5733" },
-  { "name": "Biology", "color": "#33FF57" },
-  { "name": "Earth Sciences", "color": "#3357FF" },
-  { "name": "Law", "color": "#FF33A1" },
-  { "name": "Economics and Business", "color": "#33FFA1" },
-  { "name": "Education", "color": "#A133FF" },
-  { "name": "Pharmacy", "color": "#FFA133" },
-  { "name": "Philology", "color": "#33A1FF" },
-  { "name": "Philosophy", "color": "#FF5733" },
-  { "name": "Physics", "color": "#A1FF33" },
-  { "name": "Geography and History", "color": "#FF3333" },
-  { "name": "Audiovisual Media", "color": "#33FF33" },
-  { "name": "Nursing", "color": "#337FFF" },
-  { "name": "Maths and CS", "color": "#FF33FF" },
-  { "name": "Medicine", "color": "#333FFF" },
-  { "name": "Psychology", "color": "#FFFF33" },
-  { "name": "Chemistry", "color": "#FF6F33" }
+  { "name": "Fine Arts", "color": "#E6194B" },
+  { "name": "Biology", "color": "#3CB44B" },
+  { "name": "Earth Sciences", "color": "#0082C8" },
+  { "name": "Law", "color": "#F58231" },
+  { "name": "Economics and Business", "color": "#911EB4" },
+  { "name": "Education", "color": "#46F0F0" },
+  { "name": "Pharmacy", "color": "#F032E6" },
+  { "name": "Philology", "color": "#FABEBE" },
+  { "name": "Philosophy", "color": "#008080" },
+  { "name": "Physics", "color": "#AA6E28" },
+  { "name": "Geography and History", "color": "#FFD8B1" },
+  { "name": "Audiovisual Media", "color": "#000075" },
+  { "name": "Nursing", "color": "#808000" },
+  { "name": "Maths and CS", "color": "#9A6324" },
+  { "name": "Medicine", "color": "#4363D8" },
+  { "name": "Psychology", "color": "#FFE119" },
+  { "name": "Chemistry", "color": "#DCBEFF" }
 ];
 
 interface FacultySelectorProps {

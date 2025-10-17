@@ -43,7 +43,7 @@ def register_callbacks(app):
             "ColumnLayer",
             data=data,
             get_position=["longitude", "latitude"],
-            get_elevation="category_score*10.1",  # Scale spike height
+            get_elevation="category_score*1.1",  # Scale spike height
             elevation_scale=10,
             radius=60,
             get_fill_color="color_rgb",
@@ -78,10 +78,7 @@ def register_callbacks(app):
         # Remember to make apikey as os.env
         return dash_deck.DeckGL(r.to_json(), id="deck-map",
                                 mapboxKey="pk.eyJ1IjoibWFudS11YiIsImEiOiJjbTN0M2E4bDcwNTdjMmxzZjUxZzEwd3YwIn0.nP8eJ0etV09R51KoBC47FA",
-                                style={"width": "100%", "height": "499px"})
-
-        # Default case for no data
-        return html.Div("No Data Available for Spike Map", style={"text-align": "center", "color": "red"})
+                                style={"width": "100%", "height": "700px"})
 
     @app.callback(
         Output("map-legend", "children"),
@@ -120,7 +117,7 @@ def register_callbacks(app):
         return html.Div(
             [
                 html.H4("Top 10 Faculties", className="legend-title"),
-                html.Div(legend_items, className="legend-content"),
+                html.Div(legend_items, className="legend-content", style={'height':'450px', 'max-height':'450px', 'justify-content':'start', 'display': 'grid', 'justify-items':'start' }),
             ]
         )
 
@@ -224,35 +221,32 @@ def register_callbacks(app):
                         "UB Profile": "#4b95f9",
                     }
                     node_colors.append(layer_colors[label])
-                elif label in ["Female", "Male", "Non-binary", "Others", "No answer"]:
+                elif label in ["Female", "Male", "Non-binary", "No answer"]:
                     layer_colors = {
                         "Female": "#FCB8F7",
                         "Male": "#FCB8F7",
                         "Non-binary": "#FCB8F7",
-                        "Others": "#FCB8F7",
                         "No answer": "#FCB8F7",
                     }
                     node_colors.append(layer_colors[label])
-                elif label in ["Less than 5 years", "Between 5 and 10 years", "Between 10 and 20 years",
-                               "More than 20 years"]:
+                elif label in ["Less than 5", "Between 5 and 10", "Between 11 and 20",
+                               "More than 20"]:
                     layer_colors = {
-                        "Less than 5 years": "#5CEE58",
-                        "Between 5 and 10 years": "#5CEE58",
-                        "Between 10 and 20 years": "#5CEE58",
-                        "More than 20 years": "#5CEE58",
+                        "Less than 5": "#5CEE58",
+                        "Between 5 and 10": "#5CEE58",
+                        "Between 11 and 20": "#5CEE58",
+                        "More than 20": "#5CEE58",
                     }
                     node_colors.append(layer_colors[label])
-                elif label in ["Associate", "PreDoc", "Permanent Collaborator", "Permanent Doctor Collaborator",
-                               "Lecturer", "PostDoc", "Aggregate", "Tenured", "Professor"]:
+                elif label in ["Senior Lecturer", "Associate", "PreDoc", "PostDoc",
+                               "Collab", "Lecturer", "Professor"]:
                     layer_colors = {
+                        "Senior Lecturer": "#4b95f9",
                         "Associate": "#4b95f9",
                         "PreDoc": "#4b95f9",
-                        "Permanent Collaborator": "#4b95f9",
-                        "Permanent Doctor Collaborator": "#4b95f9",
                         "PostDoc": "#4b95f9",
+                        "Collab": "#4b95f9",
                         "Lecturer": "#4b95f9",
-                        "Aggregate": "#4b95f9",
-                        "Tenured": "#4b95f9",
                         "Professor": "#4b95f9",
                     }
                     node_colors.append(layer_colors[label])
