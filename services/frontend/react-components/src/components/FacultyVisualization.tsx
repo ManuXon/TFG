@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronUp, BookOpen, Users, Eye, GraduationCap } from 'lucide-react';
+import {
+  ChevronDown, ChevronUp,
+  BookOpen, Users, Eye, GraduationCap,
+  Palette, Microscope, Globe, Scale, TrendingUp, Pill, MessageSquare,
+  Brain, Atom, Map as MapIcon, Video, Heart, Calculator, Stethoscope, FlaskConical,
+} from "lucide-react";
 import KnowledgeApplicationsWordCloud from "./KnowledgeApplicationsWordCloud";
 import Plot from 'react-plotly.js';
 
@@ -47,6 +52,41 @@ const dataAreas: DataArea[] = [
     description: 'Training programs and development',
   },
 ];
+
+// Canonical faculty name → icon
+const facultyIconMap = {
+  "Fine Arts": Palette,
+  "Biology": Microscope,
+  "Earth Sciences": Globe,
+  "Law": Scale,
+  "Economics and Business": TrendingUp,
+  "Education": BookOpen,
+  "Pharmacy": Pill,
+  "Philology": MessageSquare,
+  "Philosophy": Brain,
+  "Physics": Atom,
+  "Geography and History": MapIcon,
+  "Audiovisual Media": Video,
+  "Nursing": Heart,
+  "Maths and CS": Calculator,
+  "Medicine": Stethoscope,
+  "Psychology": Users,
+  "Chemistry": FlaskConical,
+} as const;
+
+type FacultyIconKey = keyof typeof facultyIconMap;
+
+const norm = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+const facultyIconMapLC: Record<string, (typeof facultyIconMap)[FacultyIconKey]> =
+  Object.fromEntries(
+    (Object.entries(facultyIconMap) as [FacultyIconKey, (typeof facultyIconMap)[FacultyIconKey]][])
+      .map(([k, v]) => [norm(k), v])
+  );
+
+const pickFacultyIcon = (facultyName: string) =>
+  facultyIconMapLC[norm(facultyName)] || Globe;
 
 // -------------------------
 // Knowledge Bar Chart
@@ -394,7 +434,7 @@ const KnowledgeFunctionalityChart = ({ facultyName }: { facultyName: string }) =
                 className="border border-slate-300 rounded-md px-3 py-1 text-slate-700 text-sm shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-red-200 transition" >
           <option value="bar">Grouped Bar</option>
           <option value="heatmap">Heatmap</option>
-          <option value="radar">Radar</option>
+          <option value="radar">Spider</option>
         </select>
       </div>
 
@@ -593,19 +633,28 @@ const FacultyVisualization: React.FC<{ faculty: Faculty; onBack: () => void }> =
       <div className="max-w-7xl mx-auto">
         <button
           onClick={onBack}
-          className="mb-6 px-4 py-2 bg-white rounded-lg shadow-sm border border-slate-200 text-slate-600 hover:text-slate-800 hover:shadow-md transition-all duration-200"
-        >
+          className="mb-6 px-4 py-2 bg-white rounded-lg shadow-sm border border-slate-200 text-slate-600 hover:text-slate-800 hover:shadow-md transition-all duration-200">
           ← Back to Faculty Selection
         </button>
 
         <div
           className="bg-white rounded-3xl shadow-lg scroll"
-          style={{ borderWidth: '3px', borderStyle: 'solid', borderColor: faculty.color }}
-        >
+          style={{ borderWidth: '3px', borderStyle: 'solid', borderColor: faculty.color }}>
           <div className="p-8 border-b border-slate-200 flex items-center">
-            <div className="w-8 h-8 rounded-full mr-4 shadow-md" style={{ backgroundColor: faculty.color }} />
+            <div
+              className="p-3 rounded-lg mr-4 shadow-sm"
+              style={{ backgroundColor: `${faculty.color}20` }}
+              title={faculty.name}
+            >
+              {(() => {
+                // reuse pickFacultyIcon helper
+                const Icon = pickFacultyIcon(faculty.name);
+                return <Icon className="w-8 h-8" style={{ color: faculty.color }} />;
+              })()}
+            </div>
+
             <div>
-              <h1 className="text-3xl font-light text-slate-800">{faculty.name}</h1>
+              <h1 className="text-3xl font-normal text-slate-800">{faculty.name}</h1>
               <p className="text-slate-500 text-sm mt-1">Data Visualizations & Analytics</p>
             </div>
           </div>
@@ -714,7 +763,7 @@ const FacultyVisualization: React.FC<{ faculty: Faculty; onBack: () => void }> =
             })}
           </div>
 
-          <div className="p-6 bg-slate-50 border-t border-slate-200 text-center text-slate-500 text-sm">
+          <div className="p-6 bg-slate-50 border-t border-slate-200 text-center text-slate-500 text-sm" style={{borderRadius: '23px'}}>
             Click on each section to expand and view detailed visualizations
           </div>
         </div>

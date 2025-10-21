@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import FileResponse
-from typing import Optional
+from typing import Optional, Dict, Any
 from wordcloud import WordCloud, STOPWORDS
 from PIL import Image
 import numpy as np
+import math
 import pandas as pd
 
 import os
@@ -21,6 +22,71 @@ router = APIRouter(prefix="/api", tags=["Visualizations"])
 # Load once at startup
 faculties_df = load_faculties_data()
 surveys_df = load_surveys_data()
+
+SCORE_COLS = ["knowledge_score", "uses_score", "perceptions_score", "training_needs_score"]
+
+def safe_float(v: Any) -> Optional[float]:
+  try:
+    f = float(v)
+    return None if math.isnan(f) else f
+  except Exception:
+    return None
+
+def mean_ignore_none(values):
+  vals = [v for v in values if isinstance(v, (int, float))]
+  if not vals:
+    return None
+  return sum(vals) / len(vals)
+
+@router.get("/faculty/{faculty_name}/scores")
+def faculty_scores(
+    faculty_name: str,
+    gender: str | None = None,
+    teaching_experience: str | None = None,
+    ub_profile: str | None = None,
+) -> Dict[str, Any]:
+    df = surveys_df.copy()
+
+    # Apply the same optional filters used by /spike-map
+    if gender:
+        df = df[df["gender"] == gender]
+    if teaching_experience:
+        df = df[df["teaching_experience"] == teaching_experience]
+    if ub_profile:
+        df = df[df["ub_profile"] == ub_profile]
+
+    # Case/space-insensitive faculty match, and work on all rows for that faculty
+    mask = df["faculty_name"].str.strip().str.lower() == _ci_name(faculty_name)
+    if not mask.any():
+        raise HTTPException(status_code=404, detail=f"Faculty '{faculty_name}' not found")
+
+    fdf = df.loc[mask].copy()
+
+    # --- Match /spike-map math for "All":
+    # 1) per-row mean across the 4 columns
+    fdf["row_mean"] = fdf[SCORE_COLS].mean(axis=1, skipna=True)
+    # 2) overall faculty score = mean of those per-row means
+    total_score = float(fdf["row_mean"].mean())
+
+    # Also return the per-metric means across all rows for this faculty (useful later)
+    metric_means = fdf[SCORE_COLS].mean(numeric_only=True).to_dict()
+    metric_means = {k: (float(v) if v is not None else None) for k, v in metric_means.items()}
+
+    # Color: prefer faculties_df if present; otherwise take first non-null in fdf
+    color = None
+    if "faculties_df" in globals():
+        meta = faculties_df[faculties_df["faculty_name"].str.strip().str.lower() == _ci_name(faculty_name)]
+        if not meta.empty and "color" in meta:
+            color = meta["color"].iloc[0]
+    if color is None and "color" in fdf and not fdf["color"].dropna().empty:
+        color = fdf["color"].dropna().iloc[0]
+
+    return {
+        "faculty_name": fdf["faculty_name"].iloc[0],
+        "color": color,
+        **metric_means,
+        "total_score": total_score,
+    }
 
 @router.get("/treemap-data")
 def get_treemap_data(gender: str | None = None, teaching_experience: str | None = None, ub_profile: str | None = None):

@@ -1,5 +1,6 @@
 from dash import dcc, html
 import dash_bootstrap_components as dbc
+import dash_dangerously_set_inner_html
 
 layout = html.Div(
     id="app-container",
@@ -307,125 +308,13 @@ layout = html.Div(
                 "marginBottom": "30px",
             },
         ),
-        # Spike Map (mapbox) Visualization
-        dbc.Row([
-            dbc.Col(
-                html.Div([
-                    dbc.Row([
-                        dbc.Col([
-                            html.H3("Filters", className="text-center mb-3"),
-                            dcc.Dropdown(
-                                id="category-dropdown",
-                                options=[
-                                    {"label": "All", "value": "All"},
-                                    {"label": "Knowledge of AI", "value": "knowledge"},
-                                    {"label": "Uses of AI", "value": "uses"},
-                                    {"label": "Perceptions", "value": "perceptions"},
-                                    {"label": "Training", "value": "training"}
-                                ],
-                                value="All",
-                                className="mb-2"
-                            ),
-                            dcc.Dropdown(
-                                id="gender-dropdown",
-                                options=[
-                                    {"label": "Female", "value": "Female"},
-                                    {"label": "Male", "value": "Male"},
-                                    {"label": "Non-binary", "value": "Non-binary"},
-                                    {"label": "No answer", "value": "No answer"}
-                                ],
-                                placeholder="Select gender",
-                                value=None,
-                                className="mb-2"
-                            ),
-                            dcc.Dropdown(
-                                id="teaching-experience-dropdown",
-                                options=[
-                                    {"label": "Less than 5 years", "value": "Less than 5"},
-                                    {"label": "Between 5 and 10 years", "value": "Between 5 and 10"},
-                                    {"label": "Between 11 and 20 years", "value": "Between 11 and 20"},
-                                    {"label": "More than 20 years", "value": "More than 20"}
-                                ],
-                                placeholder="Select teaching experience",
-                                value=None,
-                                className="mb-2"
-                            ),
-                            dcc.Dropdown(
-                                id="ub-profile-dropdown",
-                                options=[
-                                    {"label": "Senior Lecturer", "value": "Senior Lecturer"},
-                                    {"label": "Associate", "value": "Associate"},
-                                    {"label": "Permanent Collaborator", "value": "Collab"},
-                                    {"label": "Lecturer", "value": "Lecturer"},
-                                    {"label": "PreDoc", "value": "PreDoc"},
-                                    {"label": "PostDoc", "value": "PostDoc"},
-                                    {"label": "Professor", "value": "Professor"}
-                                ],
-                                placeholder="Select profile",
-                                value=None,
-                                className="mb-2"
-                            ),
-                        ], width=3, className="filters-container", style={
-                            "margin-top": "72px"
-                        }),
-                        dbc.Col([
-                            html.H3("Barcelona's Faculties Map Distribution", className="text-center my-3", style={"font-size":"33px"}),
-                            html.P("Geolocation of UB faculties scores", className="text-center lead"),
-                            html.Div(id="spike-map", style={"width": "100%", "height": "700px", "position": "relative"})
-                        ], width=9, className="map-container"),
-                        dbc.Col(
-                            [
-                                html.Div(
-                                    id="map-legend",
-                                    className="legend-container d-flex flex-column justify-content-between mt-3",
-                                    style={
-                                        "flex": "1",
-                                        "display": "flex",
-                                        "flex-direction": "column",
-                                        "justify-content": "space-between",
-                                    }
-
-                                )
-                            ],
-                            width=3,
-                            className="d-flex flex-column",
-                            style={
-                                "height": "100%",  # expand to available height
-                                "alignSelf": "stretch",  # let it fill parent height if possible
-                                "marginTop": "-528px",  # keep your visual offset (if really needed)
-                                'height': '518px'
-                            }
-                        ),
-                        dbc.Col([html.Div([
-                            dcc.Graph(id="bar-graph", config={"displayModeBar": False}),
-                            html.Div([
-                                dbc.Row(
-                                    [
-                                        dbc.Col(
-                                            dbc.Button(
-                                                html.I(className="fa fa-arrow-left"),  # Add Font Awesome left arrow
-                                                id="prev-button",
-                                                className="btn btn-secondary rounded-circle px-3 py-2",
-                                            ),
-                                            width="auto"
-                                        ),
-                                        dbc.Col(
-                                            dbc.Button(
-                                                html.I(className="fa fa-arrow-right"),  # Add Font Awesome right arrow
-                                                id="next-button",
-                                                className="btn btn-primary rounded-circle px-3 py-2",
-                                            ),
-                                            width="auto"
-                                        ),
-                                    ],
-                                    className="justify-content-center my-3"
-                                ),
-                            ])
-                        ])], width=12)
-                    ], className="align-items-start")
-                ], className="graph-container"), width=12
-            )
-        ], justify="center"),
+        dbc.Col([
+            html.Div([
+                dash_dangerously_set_inner_html.DangerouslySetInnerHTML(
+                    "<ub-mapbox-dashboard></ub-mapbox-dashboard>"
+                ),
+            ])
+        ]),
 
         # Sankeys Visualization for all faculties
         dbc.Row([
@@ -652,21 +541,9 @@ layout = html.Div(
             justify="center",
             className="d-flex align-items-stretch"
         ),
-        html.Div(
-            [
-                html.Iframe(
-                    id="faculty-selector-iframe",
-                    src="/assets/faculty_selector/index.html",
-                    style={
-                        "width": "100%",
-                        "height": "700px",  # initial height; we'll auto-resize below
-                        "border": "0",
-                        "overflow": "hidden",
-                        "display": "block",
-                    },
-
-                ),
-            ]
-        ),
-
-    ], )
+        html.Div([
+            dash_dangerously_set_inner_html.DangerouslySetInnerHTML(
+                "<ub-faculty-selector></ub-faculty-selector>"
+            ),
+            ])
+        ])

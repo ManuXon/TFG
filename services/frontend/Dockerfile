@@ -18,7 +18,7 @@ ARG ENV=prod
 COPY . .
 
 # Copy built React assets only for prod
-COPY --from=react-build /app/react-components/build ./assets/faculty_selector
+COPY --from=react-build /app/react-components/build ./assets/react
 
 EXPOSE 8050
 

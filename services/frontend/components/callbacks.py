@@ -116,7 +116,7 @@ def register_callbacks(app):
 
         return html.Div(
             [
-                html.H4("Top 10 Faculties", className="legend-title"),
+                html.H4("Selected faculties 10/10", className="legend-title"),
                 html.Div(legend_items, className="legend-content", style={'height':'450px', 'max-height':'450px', 'justify-content':'start', 'display': 'grid', 'justify-items':'start' }),
             ]
         )
