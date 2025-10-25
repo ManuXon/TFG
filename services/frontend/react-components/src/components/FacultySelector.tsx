@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   GraduationCap,
   ChevronRight,
@@ -20,44 +20,6 @@ import {
   Users,
   FlaskConical
 } from 'lucide-react';
-
-/** ---------- ScoreIndicator (same as your other components) ---------- */
-const getScoreColor = (score: number): string => {
-  if (score >= 80) return "#22c55e";
-  if (score >= 60) return "#84cc16";
-  if (score >= 40) return "#eab308";
-  if (score >= 20) return "#f97316";
-  return "#ef4444";
-};
-
-const ScoreIndicator: React.FC<{ score: number }> = ({ score }) => {
-  const color = getScoreColor(score);
-  const percentage = Math.max(0, Math.min(100, score || 0));
-  return (
-    <div className="flex items-center justify-center">
-      <div className="relative w-12 h-12">
-        <svg className="w-12 h-12 transform -rotate-90">
-          <circle cx="24" cy="24" r="20" stroke="#e5e7eb" strokeWidth="4" fill="none" />
-          <circle
-            cx="24"
-            cy="24"
-            r="20"
-            stroke={color}
-            strokeWidth="4"
-            fill="none"
-            strokeDasharray={`${2 * Math.PI * 20}`}
-            strokeDashoffset={`${2 * Math.PI * 20 * (1 - percentage / 100)}`}
-            strokeLinecap="round"
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xs font-semibold text-slate-700">{Math.round(percentage)}</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-/** ------------------------------------------------------------------- */
 
 interface Faculty {
   name: string;
@@ -89,14 +51,6 @@ interface FacultySelectorProps {
   onFacultySelect?: (faculty: Faculty) => void;
 }
 
-type FacultyScores = {
-  knowledge_score: number | null;
-  uses_score: number | null;
-  perceptions_score: number | null;
-  training_needs_score: number | null;
-  total_score: number | null; // mean of the four
-};
-
 /** Short display names for cards only */
 const shortDisplayName = (name: string) => {
   if (name === "Economics and Business") return "Economics";
@@ -105,62 +59,8 @@ const shortDisplayName = (name: string) => {
   return name;
 };
 
-const API_BASE = "http://localhost:8000";
-
-const average = (arr: any[]) => {
-  const nums = arr.map(Number).filter((n) => Number.isFinite(n));
-  if (!nums.length) return null;
-  return nums.reduce((a, b) => a + b, 0) / nums.length;
-};
-
-async function fetchAllFacultyScores(): Promise<Record<string, FacultyScores>> {
-  const entries = await Promise.all(
-    faculties.map(async (f) => {
-      try {
-        const res = await fetch(
-          `${API_BASE}/api/faculty/${encodeURIComponent(f.name)}/scores`,
-          { cache: "no-store" }
-        );
-        if (!res.ok) throw new Error(`${res.status}`);
-        const data = await res.json();
-        const item: FacultyScores = {
-          knowledge_score: data.knowledge_score ?? null,
-          uses_score: data.uses_score ?? null,
-          perceptions_score: data.perceptions_score ?? null,
-          training_needs_score: data.training_needs_score ?? null,
-          total_score:
-            typeof data.total_score === "number"
-              ? data.total_score
-              : average([
-                  data.knowledge_score,
-                  data.uses_score,
-                  data.perceptions_score,
-                  data.training_needs_score,
-                ]),
-        };
-        return [f.name, item] as const;
-      } catch {
-        return [f.name, { knowledge_score: null, uses_score: null, perceptions_score: null, training_needs_score: null, total_score: null }] as const;
-      }
-    })
-  );
-  return Object.fromEntries(entries);
-}
-
 const FacultySelector: React.FC<FacultySelectorProps> = ({ onFacultySelect }) => {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
-  const [scores, setScores] = useState<Record<string, FacultyScores>>({});
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const map = await fetchAllFacultyScores();
-      if (!cancelled) setScores(map);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const handleFacultyClick = (faculty: Faculty) => {
     onFacultySelect?.(faculty);
@@ -184,76 +84,74 @@ const FacultySelector: React.FC<FacultySelectorProps> = ({ onFacultySelect }) =>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {faculties.map((faculty, index) => {
             const displayName = shortDisplayName(faculty.name);
-            const total = scores[faculty.name]?.total_score;
 
             return (
               <div
-                key={faculty.name}
+                key={faculty.name || `faculty-${index}`}   // ← add this
                 className={`
-                  relative group cursor-pointer transform transition-all duration-300 ease-out
-                  ${hoveredCard === faculty.name ? 'scale-105 -translate-y-2' : 'hover:scale-102 hover:-translate-y-1'}
+                  relative cursor-pointer transform transition-all duration-300 ease-out
+                  ${hoveredCard === faculty.name ? 'scale-105 -translate-y-2' : ''}
                 `}
                 onMouseEnter={() => setHoveredCard(faculty.name)}
                 onMouseLeave={() => setHoveredCard(null)}
                 onClick={() => handleFacultyClick(faculty)}
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-                {/* Card */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden h-32 relative group-hover:shadow-xl transition-shadow duration-300">
-                  {/* Color accent bar */}
-                  <div
-                    className="absolute top-0 left-0 right-0 h-1"
-                    style={{ backgroundColor: faculty.color }}
-                  />
+              {/* Card */}
+              <div
+                className="bg-white rounded-2xl shadow-sm overflow-hidden h-32 relative transition-shadow duration-300"
+                style={{
+                  boxShadow:
+                    hoveredCard === faculty.name
+                      ? '0 12px 28px rgba(2, 6, 23, 0.12)'
+                      : '0 2px 6px rgba(2, 6, 23, 0.06)',
+                  border: hoveredCard === faculty.name
+                    ? `1px solid ${faculty.color}`
+                    : '1px solid #e2e8f0', // neutral
+                }}
+              >
+                {/* Accent bar */}
+                <div
+                  className="absolute top-0 left-0 right-0"
+                  style={{ height: hoveredCard === faculty.name ? 4 : 1, backgroundColor: faculty.color, transition: 'height 200ms ease' }}
+                />
 
-                  {/* Content (made relative for absolute indicator) */}
-                  <div className="p-6 h-full flex flex-col justify-between relative">
-                    {/* Score indicator: top-right, inside content */}
-                    {typeof total === "number" ? (
-                      <div className="absolute top-3 right-3 pointer-events-none">
-                        <ScoreIndicator score={total} />
-                      </div>
-                    ) : (
-                      <div
-                        className="absolute top-11 right-20 w-14 h-14 rounded-full border-2 border-dashed border-slate-200"
-                        title="Loading score..."
-                      />
-                    )}
+                {/* Content */}
+                <div className="p-6 h-full flex flex-col justify-between">
+                  <h3 className="font-medium text-slate-800 text-lg leading-tight mb-2">
+                    {displayName}
+                  </h3>
 
-                    {/* Title (padded-right, so it doesn't collide with indicator) */}
-                    <h3 className="font-medium text-slate-800 text-lg leading-tight mb-2 pr-20">
-                      {displayName}
-                    </h3>
-
-                    {/* Bottom row: icon (left) + chevron (right) */}
-                    <div className="flex items-center justify-between">
-                      <div
-                        className="p-2 rounded-lg"
-                        style={{ backgroundColor: `${faculty.color}20` }}
-                      >
-                        <div style={{ color: faculty.color }}>
-                          {faculty.icon}
-                        </div>
-                      </div>
-
-                      <ChevronRight
-                        className={`
-                          w-5 h-5 text-slate-400 transition-all duration-200
-                          ${hoveredCard === faculty.name ? 'text-slate-600 translate-x-1' : ''}
-                        `}
-                      />
+                  <div className="flex items-center justify-between">
+                    <div
+                      className="p-2 rounded-lg"
+                      style={{ backgroundColor: `${faculty.color}20` }}
+                    >
+                      <div style={{ color: faculty.color }}>{faculty.icon}</div>
                     </div>
-                  </div>
 
-                  {/* Hover overlay */}
-                  <div
-                    className={`
-                      absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-300
-                    `}
-                    style={{ backgroundColor: faculty.color }}
-                  />
+                    <ChevronRight
+                      className="w-5 h-5 transition-all duration-200"
+                      style={{
+                        color: hoveredCard === faculty.name ? '#334155' : '#94a3b8',
+                        transform: hoveredCard === faculty.name ? 'translateX(4px)' : 'translateX(0)',
+                      }}
+                    />
+                  </div>
                 </div>
+
+                {/* Overlay (no Tailwind group-hover) */}
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    backgroundColor: faculty.color,
+                    opacity: hoveredCard === faculty.name ? 0.06 : 0,
+                    transition: 'opacity 300ms ease',
+                  }}
+                />
               </div>
+            </div>
+
             );
           })}
         </div>

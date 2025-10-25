@@ -304,7 +304,7 @@ def register_callbacks(app):
         fig.update_layout(
             title_text="Interactive Sankey Diagram",
             font_size=10,
-            height=800,
+            height=600,
             margin=dict(l=50, r=50, t=50, b=50),
             clickmode="event+select"
         )

@@ -739,7 +739,7 @@ const MapboxDashboard: React.FC = () => {
         setMapVisible(true);
         safeResize("fallback");
       }
-    }, 4000);
+    }, 2000);
 
     const ro = new ResizeObserver(() => {
       requestAnimationFrame(() => safeResize("ResizeObserver"));
@@ -950,7 +950,7 @@ const MapboxDashboard: React.FC = () => {
           })
         )}
 
-        {/* axis labels — bigger font now */}
+        {/* axis labels — bigger font  */}
         {METRICS.map((m, i) => {
           const labelPt = pointAt(i, 100); // at the outer ring
           const a = angleFor(i);
@@ -1076,7 +1076,7 @@ const MapboxDashboard: React.FC = () => {
 
           <div className="col-span-9">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="w-full h-[600px] relative">
+              <div className="w-full h-[718px] relative">
                 <div ref={mapContainer} className="absolute inset-0" />
                 {!mapVisible && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 z-10">

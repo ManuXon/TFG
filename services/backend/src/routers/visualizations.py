@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Query, HTTPException
+from __future__ import annotations
+
+from fastapi import APIRouter, Query, HTTPException, Response
 from fastapi.responses import FileResponse
 from typing import Optional, Dict, Any
 from wordcloud import WordCloud, STOPWORDS
@@ -9,11 +11,9 @@ import pandas as pd
 
 import os
 
-
 import numpy as np
 from src.utils.data_loader import load_surveys_data, load_faculties_data, df_to_json_safe
 import logging
-
 
 logger = logging.getLogger("uvicorn")
 
@@ -25,18 +25,21 @@ surveys_df = load_surveys_data()
 
 SCORE_COLS = ["knowledge_score", "uses_score", "perceptions_score", "training_needs_score"]
 
+
 def safe_float(v: Any) -> Optional[float]:
-  try:
-    f = float(v)
-    return None if math.isnan(f) else f
-  except Exception:
-    return None
+    try:
+        f = float(v)
+        return None if math.isnan(f) else f
+    except Exception:
+        return None
+
 
 def mean_ignore_none(values):
-  vals = [v for v in values if isinstance(v, (int, float))]
-  if not vals:
-    return None
-  return sum(vals) / len(vals)
+    vals = [v for v in values if isinstance(v, (int, float))]
+    if not vals:
+        return None
+    return sum(vals) / len(vals)
+
 
 @router.get("/faculty/{faculty_name}/scores")
 def faculty_scores(
@@ -55,38 +58,43 @@ def faculty_scores(
     if ub_profile:
         df = df[df["ub_profile"] == ub_profile]
 
-    # Case/space-insensitive faculty match, and work on all rows for that faculty
-    mask = df["faculty_name"].str.strip().str.lower() == _ci_name(faculty_name)
+    # Case/space-insensitive faculty match over ALL rows for that faculty
+    fac_key = (faculty_name or "").strip().lower()
+    mask = df["faculty_name"].astype(str).str.strip().str.lower() == fac_key
     if not mask.any():
         raise HTTPException(status_code=404, detail=f"Faculty '{faculty_name}' not found")
 
     fdf = df.loc[mask].copy()
 
-    # --- Match /spike-map math for "All":
+    # Match /spike-map math for "All":
     # 1) per-row mean across the 4 columns
     fdf["row_mean"] = fdf[SCORE_COLS].mean(axis=1, skipna=True)
     # 2) overall faculty score = mean of those per-row means
-    total_score = float(fdf["row_mean"].mean())
+    total_score = float(fdf["row_mean"].mean(skipna=True))
 
-    # Also return the per-metric means across all rows for this faculty (useful later)
-    metric_means = fdf[SCORE_COLS].mean(numeric_only=True).to_dict()
+    # Per-metric means across all rows for this faculty
+    metric_means = fdf[SCORE_COLS].mean(numeric_only=True, skipna=True).to_dict()
     metric_means = {k: (float(v) if v is not None else None) for k, v in metric_means.items()}
 
     # Color: prefer faculties_df if present; otherwise take first non-null in fdf
     color = None
     if "faculties_df" in globals():
-        meta = faculties_df[faculties_df["faculty_name"].str.strip().str.lower() == _ci_name(faculty_name)]
-        if not meta.empty and "color" in meta:
-            color = meta["color"].iloc[0]
-    if color is None and "color" in fdf and not fdf["color"].dropna().empty:
+        meta = faculties_df[
+            faculties_df["faculty_name"].astype(str).str.strip().str.lower() == fac_key
+        ]
+        if not meta.empty and "color" in meta.columns:
+            color = meta["color"].dropna().iloc[0] if not meta["color"].dropna().empty else None
+
+    if color is None and "color" in fdf.columns and not fdf["color"].dropna().empty:
         color = fdf["color"].dropna().iloc[0]
 
     return {
         "faculty_name": fdf["faculty_name"].iloc[0],
         "color": color,
-        **metric_means,
-        "total_score": total_score,
+        **metric_means,             # knowledge_score, uses_score, perceptions_score, training_needs_score
+        "total_score": total_score, # mean(row_means) — matches /spike-map when category=All
     }
+
 
 @router.get("/treemap-data")
 def get_treemap_data(gender: str | None = None, teaching_experience: str | None = None, ub_profile: str | None = None):
@@ -117,7 +125,8 @@ def get_treemap_data(gender: str | None = None, teaching_experience: str | None 
 
 
 @router.get("/spike-map")
-def get_spike_map_data(category: str = "All", gender: str | None = None, teaching_experience: str | None = None, ub_profile: str | None = None):
+def get_spike_map_data(category: str = "All", gender: str | None = None, teaching_experience: str | None = None,
+                       ub_profile: str | None = None):
     df = surveys_df.copy()
 
     if gender:
@@ -128,7 +137,8 @@ def get_spike_map_data(category: str = "All", gender: str | None = None, teachin
         df = df[df["ub_profile"] == ub_profile]
 
     if category == "All":
-        df["category_score"] = df[["knowledge_score", "uses_score", "perceptions_score", "training_needs_score"]].mean(axis=1)
+        df["category_score"] = df[["knowledge_score", "uses_score", "perceptions_score", "training_needs_score"]].mean(
+            axis=1)
     else:
         category_column = {
             "knowledge": "knowledge_score",
@@ -140,18 +150,20 @@ def get_spike_map_data(category: str = "All", gender: str | None = None, teachin
 
     faculties_df["color_rgb_tuple"] = faculties_df["color_rgb"].apply(tuple)
     df = df.merge(faculties_df, on="faculty_name", how="left")
-    grouped = df.groupby(["faculty_name", "latitude", "longitude", "color", "short_name", "color_rgb_tuple"]).mean(numeric_only=True).reset_index()
+    grouped = df.groupby(["faculty_name", "latitude", "longitude", "color", "short_name", "color_rgb_tuple"]).mean(
+        numeric_only=True).reset_index()
     grouped["color_rgb"] = grouped["color_rgb_tuple"].apply(list)
     grouped.drop(columns=["color_rgb_tuple"], inplace=True)
 
     # Use the helper to return safe JSON
     return df_to_json_safe(grouped)
 
+
 @router.get("/faculty/{faculty_name}/knowledge-distribution")
 def knowledge_distribution(
-    faculty_name: str,
-    demographic1: str = "gender",
-    demographic2: str | None = None,
+        faculty_name: str,
+        demographic1: str = "gender",
+        demographic2: str | None = None,
 ):
     df = surveys_df[surveys_df["faculty_name"] == faculty_name].copy()
 
@@ -221,6 +233,7 @@ def knowledge_distribution(
         "data": g[["main", "sub", "mean_sub", "n_sub", "n_main", "main_avg", "contribution"]]
         .to_dict(orient="records"),
     }
+
 
 def get_sankey_chart_data():
     df = surveys_df.copy()
@@ -308,6 +321,7 @@ def sankey_data():
     data = get_sankey_chart_data()
     return data
 
+
 @router.get("/faculty/{faculty_name}/normative-distribution")
 def get_normative_distribution(faculty_name: str):
     df = surveys_df[surveys_df["faculty_name"] == faculty_name]
@@ -322,12 +336,13 @@ def get_normative_distribution(faculty_name: str):
         "values": list(distribution.values())
     }
 
+
 @router.get("/faculty/{faculty_name}/knowledge-functionality-correlation")
 def get_knowledge_functionality_correlation(
-    faculty_name: str,
-    gender: Optional[str] = Query(None),
-    experience: Optional[str] = Query(None),
-    profile: Optional[str] = Query(None),
+        faculty_name: str,
+        gender: Optional[str] = Query(None),
+        experience: Optional[str] = Query(None),
+        profile: Optional[str] = Query(None),
 ):
     df = surveys_df[surveys_df["faculty_name"] == faculty_name].copy()
 
@@ -381,22 +396,15 @@ def get_knowledge_functionality_correlation(
     return grouped.to_dict(orient="records")
 
 
-@router.get("/faculty/{faculty_name}/knowledge-applications-wordcloud-image")
+@router.get("/faculty/{faculty_name}/knowledge-applications-wordcloud-svg")
 def knowledge_concept_cloud_image(
     faculty_name: str,
     gender: Optional[str] = Query(None),
     experience: Optional[str] = Query(None),
     profile: Optional[str] = Query(None),
 ):
-    """
-    Generates and returns a rectangular word cloud image of AI functionalities,
-    where each word visually appears twice for density.
-    """
-
-    # --- Filter by faculty
     df = surveys_df[surveys_df["faculty_name"] == faculty_name].copy()
 
-    # --- Apply filters
     if gender and gender != "All":
         df = df[df["gender"] == gender]
     if experience:
@@ -404,7 +412,6 @@ def knowledge_concept_cloud_image(
     if profile:
         df = df[df["ub_profile"] == profile]
 
-    # --- Mapping for knowledge levels
     app_map = {
         "I don't know any": 1,
         "I know a few": 2,
@@ -412,7 +419,6 @@ def knowledge_concept_cloud_image(
         "I know many": 4,
     }
 
-    # --- Application columns
     app_columns = [
         "ia_knowledge_text_creation",
         "ia_knowledge_multimedia_creation",
@@ -429,7 +435,6 @@ def knowledge_concept_cloud_image(
         "ia_knowledge_inclusion_support",
     ]
 
-    # --- Shorter, clearer one-word labels
     name_map = {
         "ia_knowledge_text_creation": "Text",
         "ia_knowledge_multimedia_creation": "Media",
@@ -442,44 +447,96 @@ def knowledge_concept_cloud_image(
         "ia_knowledge_transcription_translation": "Translation",
         "ia_knowledge_data_analysis": "Analysis",
         "ia_knowledge_technical_support": "Support",
-        "ia_knowledge_ai_experiments": "AI",
+        "ia_knowledge_ai_experiments": "Experiments",
         "ia_knowledge_inclusion_support": "Inclusion",
     }
 
-    # --- Map text to numeric and compute TOTAL frequencies
     for col in app_columns:
         df[col] = df[col].map(app_map).fillna(0)
+
     total_scores = df[app_columns].sum().to_dict()
 
-    # --- Label → score dictionary
-    frequencies = {name_map[col]: float(score) for col, score in total_scores.items()}
+    # Amplify differences with a mild gamma > 1
+    gamma = 1.25  # try
+    freqs = {name_map[c]: float(v) ** gamma for c, v in total_scores.items()}
 
-    # --- Output directory
     base_dir = os.path.dirname(os.path.abspath(__file__))
     img_dir = os.path.join(base_dir, "..", "img")
     os.makedirs(img_dir, exist_ok=True)
-
     output_path = os.path.join(img_dir, f"{faculty_name}_wordcloud.png")
 
-    # --- UB red→orange→yellow color palette (via matplotlib colormap)
-    # Equivalent to your frontend color palette
     wc = WordCloud(
         background_color="white",
-        colormap="inferno",  # 🔥 red–orange–yellow palette
         width=1000,
-        height=400,
-        max_words=13,
-        prefer_horizontal=0.95,
-        relative_scaling=0.6,
-        repeat=True,
-        scale=3,
-        margin=8,
-        contour_width=0,
-        max_font_size=80,
-    ).generate_from_frequencies(frequencies)
+        height=420,
+        max_words=50,
+        prefer_horizontal=0.92,
+        relative_scaling=1.0,
+        repeat=False,
+        scale=1,
+        margin=2,
+        collocations=False,
+        normalize_plurals=False,
+        # Note: `colormap` works for SVG too
+        colormap="inferno",
+    ).generate_from_frequencies(freqs)
 
-    # --- Save to file
-    wc.to_file(output_path)
+    svg = wc.to_svg(embed_font=True)
+    # Make it responsive + add hover styling
+    svg = svg.replace(
+        "<svg ",
+        "<svg style='max-width:100%;height:auto' "
+    )
+    svg = svg.replace(
+        "</svg>",
+        "<style>text{transition:opacity .15s, filter .15s} text:hover{opacity:.9; filter:drop-shadow(0 0 2px rgba(0,0,0,.25)); cursor:pointer}</style></svg>"
+    )
+    return Response(content=svg, media_type="image/svg+xml")
 
-    # --- Return the image file
-    return FileResponse(output_path, media_type="image/png")
+# --- NEW: distribution per application (for the radar chart)
+@router.get("/faculty/{faculty_name}/knowledge-applications-distribution-count")
+def knowledge_app_distribution(
+    faculty_name: str,
+    app_label: str = Query(..., description="Label from name_map, e.g. 'Text', 'Media', ..."),
+    gender: Optional[str] = Query(None),
+    experience: Optional[str] = Query(None),
+    profile: Optional[str] = Query(None),
+):
+    # IMPORTANT: use the *raw* survey values (not mapped to 1..4), so we can count categories.
+    df = surveys_df[surveys_df["faculty_name"] == faculty_name].copy()
+
+    if gender and gender != "All":
+        df = df[df["gender"] == gender]
+    if experience:
+        df = df[df["teaching_experience"] == experience]
+    if profile:
+        df = df[df["ub_profile"] == profile]
+
+    name_map = {
+        "ia_knowledge_text_creation": "Text",
+        "ia_knowledge_multimedia_creation": "Media",
+        "ia_knowledge_class_planning": "Planning",
+        "ia_knowledge_material_design": "Design",
+        "ia_knowledge_activity_design": "Activity",
+        "ia_knowledge_evaluation": "Evaluation",
+        "ia_knowledge_research_management": "Research",
+        "ia_knowledge_data_collection": "Data",
+        "ia_knowledge_transcription_translation": "Translation",
+        "ia_knowledge_data_analysis": "Analysis",
+        "ia_knowledge_technical_support": "Support",
+        "ia_knowledge_ai_experiments": "Experiments",
+        "ia_knowledge_inclusion_support": "Inclusion",
+    }
+    reverse_name_map = {v: k for k, v in name_map.items()}
+    col = reverse_name_map.get(app_label)
+    if not col:
+        raise HTTPException(status_code=400, detail=f"Unknown app_label '{app_label}'")
+
+    # Categories in a fixed order
+    levels = ["I don't know any", "I know a few", "I know several", "I know many"]
+
+    # Count raw strings
+    counts = {lvl: int((df[col] == lvl).sum()) for lvl in levels}
+    total = int(sum(counts.values()))
+
+    return {"label": app_label, "levels": levels, "counts": counts, "total": total}
