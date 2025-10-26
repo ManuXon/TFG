@@ -48,11 +48,13 @@ layout = html.Div(
                         html.Div(
                             html.Button(
                                 "Let's Explore!",
+                                id="lets-explore-btn",
                                 className='btn btn-primary rounded px-4 py-3 fw-bold',
                                 style={
                                     'background-color': '#6ea8fe',
                                     'color': '#f7f7f7',
-                                    'border': 'none'
+                                    'border': 'none',
+                                    'cursor': 'pointer',
                                 }
                             )
                         ),
@@ -318,12 +320,20 @@ layout = html.Div(
             },
         ),
         dbc.Col([
-            html.Div([
-                dash_dangerously_set_inner_html.DangerouslySetInnerHTML(
-                    "<ub-mapbox-dashboard></ub-mapbox-dashboard>"
-                ),
-            ])
+            html.Div(
+                id="mapbox-section",
+                children=[
+                    dash_dangerously_set_inner_html.DangerouslySetInnerHTML(
+                        "<ub-mapbox-dashboard></ub-mapbox-dashboard>"
+                    ),
+                ],
+                style={
+                    # just to be nice to scrollIntoView with sticky headers
+                    "scrollMarginTop": "80px",
+                }
+            )
         ]),
+
         # Sankeys Visualization for all faculties (RESTYLED)
         dbc.Row(
             [
@@ -712,9 +722,24 @@ layout = html.Div(
         )
 
         ,
-        html.Div([
-            dash_dangerously_set_inner_html.DangerouslySetInnerHTML(
-                "<ub-faculty-selector></ub-faculty-selector>"
-            ),
-        ])
+        html.Div(
+            id="faculty-visualization",
+            children=[
+                dash_dangerously_set_inner_html.DangerouslySetInnerHTML(
+                    "<ub-faculty-selector></ub-faculty-selector>"
+                ),
+                # If/when you mount <FacultyVisualization /> from React (or render its web component),
+                # do it in here too so scrolling lands on the whole block.
+                # dash_dangerously_set_inner_html.DangerouslySetInnerHTML(
+                #     "<ub-faculty-visualization></ub-faculty-visualization>"
+                # ),
+            ],
+            style={
+                # helps scrollIntoView land cleanly below sticky headers
+                "scrollMarginTop": "100px",
+                # optional: a tiny top margin so it's visually separate
+                "marginTop": "40px",
+            },
+        )
+
     ])

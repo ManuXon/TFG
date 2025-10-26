@@ -125,10 +125,15 @@ def get_treemap_data(gender: str | None = None, teaching_experience: str | None 
 
 
 @router.get("/spike-map")
-def get_spike_map_data(category: str = "All", gender: str | None = None, teaching_experience: str | None = None,
-                       ub_profile: str | None = None):
+def get_spike_map_data(
+    category: str = "All",
+    gender: str | None = None,
+    teaching_experience: str | None = None,
+    ub_profile: str | None = None,
+):
     df = surveys_df.copy()
 
+    # ----- filters -----
     if gender:
         df = df[df["gender"] == gender]
     if teaching_experience:
@@ -136,28 +141,50 @@ def get_spike_map_data(category: str = "All", gender: str | None = None, teachin
     if ub_profile:
         df = df[df["ub_profile"] == ub_profile]
 
+    # ----- pick/compute category_score for each row -----
     if category == "All":
-        df["category_score"] = df[["knowledge_score", "uses_score", "perceptions_score", "training_needs_score"]].mean(
-            axis=1)
+        df["category_score"] = df[
+            ["knowledge_score", "uses_score", "perceptions_score", "training_needs_score"]
+        ].mean(axis=1)
     else:
         category_column = {
             "knowledge": "knowledge_score",
             "uses": "uses_score",
             "perceptions": "perceptions_score",
-            "training": "training_needs_score"
+            "training": "training_needs_score",
         }.get(category, "knowledge_score")
         df["category_score"] = df[category_column]
 
+    # ----- attach faculty metadata (lat/lon/color/etc) -----
     faculties_df["color_rgb_tuple"] = faculties_df["color_rgb"].apply(tuple)
     df = df.merge(faculties_df, on="faculty_name", how="left")
-    grouped = df.groupby(["faculty_name", "latitude", "longitude", "color", "short_name", "color_rgb_tuple"]).mean(
-        numeric_only=True).reset_index()
-    grouped["color_rgb"] = grouped["color_rgb_tuple"].apply(list)
-    grouped.drop(columns=["color_rgb_tuple"], inplace=True)
 
-    # Use the helper to return safe JSON
-    return df_to_json_safe(grouped)
+    # ----- aggregate by faculty -----
+    # we need both the means of the scores AND the counts per faculty
+    agg = df.groupby(
+        ["faculty_name", "latitude", "longitude", "color", "short_name", "color_rgb_tuple"],
+        dropna=False,
+    ).agg(
+        {
+            "category_score": "mean",
+            "knowledge_score": "mean",
+            "uses_score": "mean",
+            "perceptions_score": "mean",
+            "training_needs_score": "mean",
+            # count of raw rows in this faculty after filters
+            "faculty_name": "count",
+        }
+    )
 
+    agg = agg.rename(columns={"faculty_name": "n_responses"}).reset_index()
+
+    # ----- convert rgb tuple back to list for JSON -----
+    agg["color_rgb"] = agg["color_rgb_tuple"].apply(list)
+    agg.drop(columns=["color_rgb_tuple"], inplace=True)
+
+    # df_to_json_safe should turn it into something FastAPI can serialize cleanly,
+    # and also handle NaNs -> None, etc.
+    return df_to_json_safe(agg)
 
 @router.get("/faculty/{faculty_name}/knowledge-distribution")
 def knowledge_distribution(

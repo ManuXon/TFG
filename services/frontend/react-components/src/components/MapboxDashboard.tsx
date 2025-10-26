@@ -19,6 +19,7 @@ import {
   Users,
   FlaskConical,
   ChevronDown,
+  X,
 } from "lucide-react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
@@ -52,6 +53,8 @@ interface Faculty {
   perceptions_score?: number;
   training_needs_score?: number;
   short_name?: string;
+
+  n_responses?: number;
 }
 
 type CameraState = {
@@ -65,7 +68,7 @@ const CAMERA_KEY = "ub-map-camera";
 const DEFAULT_CAMERA: CameraState = {
   center: [2.118635482300988, 41.3852202905023],
   zoom: 15.516856636384215,
-  pitch: 56.00686296371543,
+  pitch: 53.00658978150287,
   bearing: 135.53751895634423,
 };
 
@@ -195,6 +198,192 @@ const hexToRgba = (hex: string, alpha: number) => {
 };
 
 const MapboxDashboard: React.FC = () => {
+   // ---------- mini tooltip component ----------
+  const TooltipContent: React.FC<{
+    faculty: {
+      faculty_name: string;
+      color: string;
+      n_responses?: number;
+      knowledge_score?: number;
+      uses_score?: number;
+      perceptions_score?: number;
+      training_needs_score?: number;
+    };
+    maxResponses: number;
+  }> = ({ faculty, maxResponses }) => {
+    const {
+      faculty_name,
+      color,
+      knowledge_score = 0,
+      uses_score = 0,
+      perceptions_score = 0,
+      training_needs_score = 0,
+      n_responses = 0,
+    } = faculty;
+
+    const Icon = pickIconComponent(faculty_name);
+
+    // normalize participant count to 0–100 using the biggest faculty
+    const participantsPct =
+      maxResponses > 0 ? (n_responses / maxResponses) * 100 : 0;
+
+    // the bars we draw (short labels)
+    const bars = [
+      {
+        key: "Resp",
+        value: participantsPct,
+        raw: n_responses,
+        color: color,
+        textColor: color,
+      },
+      {
+        key: "Know",
+        value: knowledge_score,
+        raw: knowledge_score,
+        color: "#b91c1c",
+        textColor: "#b91c1c",
+      },
+      {
+        key: "Uses",
+        value: uses_score,
+        raw: uses_score,
+        color: "#6b21a8",
+        textColor: "#6b21a8",
+      },
+      {
+        key: "Perc",
+        value: perceptions_score,
+        raw: perceptions_score,
+        color: "#15803d",
+        textColor: "#15803d",
+      },
+      {
+        key: "Train",
+        value: training_needs_score,
+        raw: training_needs_score,
+        color: "#b45309",
+        textColor: "#b45309",
+      },
+    ];
+
+    // tiny SVG layout numbers
+    const W = 185;
+    const H = 90;
+    const chartTop = 10;
+    const chartBottom = 73;
+    const chartHeight = chartBottom - chartTop;
+    const barWidth = 20;
+    const gap = 10;
+    const startX = 10;
+
+    return (
+      <div
+        className="text-[11px] text-slate-700"
+        style={{ minWidth: W + "px", maxWidth: W + "px" }}
+      >
+        {/* header row */}
+        <div className="flex items-center gap-2 mb-2">
+          <span
+            className="inline-flex items-center justify-center rounded-md p-1 shadow-sm"
+            style={{
+              backgroundColor: `${color}22`,
+              color: color,
+              border: `1px solid ${color}44`,
+            }}
+          >
+            <Icon className="w-4 h-4" />
+          </span>
+          <span className="font-semibold text-slate-900 text-[12px] leading-none">
+            {faculty_name}
+          </span>
+        </div>
+
+        {/* bar chart */}
+        <svg
+          width={W}
+          height={H}
+          style={{ display: "block" }}
+          aria-label="faculty quick metrics"
+        >
+          {/* grid lines @25/50/75/100 */}
+          {[25, 50, 75, 100].map((tick) => {
+            const y = chartBottom - (tick / 100) * chartHeight;
+            return (
+              <g key={tick}>
+                <line
+                  x1={0}
+                  x2={W}
+                  y1={y}
+                  y2={y}
+                  stroke="#e5e7eb"
+                  strokeWidth={tick === 100 ? 1.5 : 1}
+                  strokeDasharray={tick === 100 ? "0" : "2,2"}
+                />
+                <text
+                  x={W - 4}
+                  y={y - 2}
+                  textAnchor="end"
+                  className="fill-slate-400 text-[9px]"
+                >
+                  {tick}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* the bars */}
+          {bars.map((b, i) => {
+            const v = Math.max(0, Math.min(100, b.value || 0));
+            const barH = (v / 100) * chartHeight;
+            const x = startX + i * (barWidth + gap);
+            const y = chartBottom - barH;
+
+            return (
+              <g key={b.key}>
+                <rect
+                  x={x}
+                  y={y}
+                  width={barWidth}
+                  height={barH}
+                  rx={3}
+                  ry={3}
+                  fill={b.color}
+                  stroke="#ffffff"
+                  strokeWidth={0.5}
+                />
+                {/* numeric label above bar */}
+                <text
+                  x={x + barWidth / 2}
+                  y={y - 4}
+                  textAnchor="middle"
+                  className="text-[9px] font-semibold"
+                  style={{ fill: b.textColor }}
+                >
+                  {b.key === "Resp"
+                    ? b.raw
+                    : Math.round(b.raw ?? 0)}
+                </text>
+
+                {/* short label under bar */}
+                <text
+                  x={x + barWidth / 2}
+                  y={chartBottom + 10}
+                  textAnchor="middle"
+                  className="fill-slate-600 text-[9px]"
+                >
+                  {b.key}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+
+        <div className="text-[9px] text-slate-400 text-right mt-1">
+          Responses normalized to 100.
+        </div>
+      </div>
+    );
+  };
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
 
@@ -254,12 +443,14 @@ const MapboxDashboard: React.FC = () => {
       el.style.transform = "translate(-50%, -100%)";
       el.style.zIndex = "5";
       el.style.pointerEvents = "none";
-      el.style.padding = "6px 8px";
-      el.style.background = "rgba(255,255,255,0.95)";
+      el.style.padding = "8px 10px";
+      el.style.background = "rgba(255,255,255,0.97)";
       el.style.border = "1px solid rgba(0,0,0,0.08)";
-      el.style.borderRadius = "10px";
-      el.style.boxShadow = "0 4px 12px rgba(0,0,0,0.18)";
+      el.style.borderRadius = "12px";
+      el.style.boxShadow = "0 8px 24px rgba(0,0,0,0.18)";
       el.style.display = "none";
+      el.style.minWidth = "200px";
+      el.style.maxWidth = "210px";
 
       const onEnter = () => {
         overPopupRef.current = true;
@@ -312,26 +503,40 @@ const MapboxDashboard: React.FC = () => {
   }, []);
 
   const showTooltip = useCallback(
-    (map: mapboxgl.Map, lng: number, lat: number, name: string, score: number) => {
-      clearHideTimer();
+  (
+    map: mapboxgl.Map,
+    lng: number,
+    lat: number,
+    facultyInfo: {
+      faculty_name: string;
+      color: string;
+      n_responses?: number;
+      knowledge_score?: number;
+      uses_score?: number;
+      perceptions_score?: number;
+      training_needs_score?: number;
+    }
+  ) => {
+    clearHideTimer();
 
-      const el = ensureTooltipEl(map);
-      tooltipLngLatRef.current = [lng, lat];
+    const el = ensureTooltipEl(map);
+    tooltipLngLatRef.current = [lng, lat];
 
-      tooltipRootRef.current?.render(
-        <div className="flex items-center gap-2">
-          <ScoreIndicator score={score} />
-          <div className="text-xs font-medium text-slate-800">{name}</div>
-        </div>
-      );
+    tooltipRootRef.current?.render(
+      <TooltipContent
+        faculty={facultyInfo}
+        maxResponses={maxResponsesRef.current}
+      />
+    );
 
-      el.style.display = "block";
-      tooltipVisibleRef.current = true;
-      positionTooltip(map);
-      attachRender(map);
-    },
-    [ensureTooltipEl, positionTooltip, attachRender, clearHideTimer]
-  );
+    el.style.display = "block";
+    tooltipVisibleRef.current = true;
+    positionTooltip(map);
+    attachRender(map);
+  },
+  [ensureTooltipEl, positionTooltip, attachRender, clearHideTimer]
+);
+
 
   // camera memory
   const cameraRef = useRef<CameraState>(loadCamera() || DEFAULT_CAMERA);
@@ -347,6 +552,16 @@ const MapboxDashboard: React.FC = () => {
     const f = facultyData.find((d) => d.faculty_name === name);
     return !!f && Number.isFinite(f?.category_score);
   });
+   // largest n_responses across current facultyData (used to scale "Resp" bar 0-100)
+  const maxResponsesRef = useRef<number>(0);
+  useEffect(() => {
+    let maxR = 0;
+    facultyData.forEach((f) => {
+      const n = f.n_responses ?? 0;
+      if (n > maxR) maxR = n;
+    });
+    maxResponsesRef.current = maxR;
+  }, [facultyData]);
 
   // Shorten display name for the chart list (only)
   const shortenFacultyLabel = useCallback((n: string) => {
@@ -397,43 +612,50 @@ const MapboxDashboard: React.FC = () => {
 
   /** ---------- Build/push GeoJSON for spikes ---------- */
   const buildGeoJSON = useCallback((rows: Faculty[]) => {
-    const d = 0.0003;
-    const features = rows
-      .map((f) => {
-        const lon = Number(f.longitude);
-        const lat = Number(f.latitude);
-        if (!isFinite(lon) || !isFinite(lat)) return null;
-        return {
-          type: "Feature",
-          geometry: {
-            type: "Polygon",
-            coordinates: [
-              [
-                [lon - d, lat - d],
-                [lon + d, lat - d],
-                [lon + d, lat + d],
-                [lon - d, lat + d],
-                [lon - d, lat - d],
-              ],
+  const d = 0.0003;
+  const features = rows
+    .map((f) => {
+      const lon = Number(f.longitude);
+      const lat = Number(f.latitude);
+      if (!isFinite(lon) || !isFinite(lat)) return null;
+      return {
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [lon - d, lat - d],
+              [lon + d, lat - d],
+              [lon + d, lat + d],
+              [lon - d, lat + d],
+              [lon - d, lat - d],
             ],
-          },
-          properties: {
-            faculty_name: f.faculty_name,
-            centerLon: lon,
-            centerLat: lat,
-            score: isFinite(f.category_score) ? f.category_score : 0,
-            color:
-              Array.isArray(f.color_rgb) && f.color_rgb.length === 3
-                ? `rgb(${f.color_rgb.join(",")})`
-                : f.color || "#888",
-            height: (isFinite(f.category_score) ? f.category_score : 0) * 4.2,
-          },
-        };
-      })
-      .filter(Boolean) as any[];
+          ],
+        },
+        properties: {
+          faculty_name: f.faculty_name,
+          centerLon: lon,
+          centerLat: lat,
 
-    return { type: "FeatureCollection", features } as any;
-  }, []);
+          // for tooltip and bars
+          color: f.color || "#888",
+          n_responses: f.n_responses ?? 0,
+          knowledge_score: f.knowledge_score ?? 0,
+          uses_score: f.uses_score ?? 0,
+          perceptions_score: f.perceptions_score ?? 0,
+          training_needs_score: f.training_needs_score ?? 0,
+
+          // for extrusion
+          score: isFinite(f.category_score) ? f.category_score : 0,
+          height: (isFinite(f.category_score) ? f.category_score : 0) * 4.2,
+        },
+      };
+    })
+    .filter(Boolean) as any[];
+
+  return { type: "FeatureCollection", features } as any;
+}, []);
+
 
   const pushFaculties = useCallback(
     (map: mapboxgl.Map, rows: Faculty[]) => {
@@ -557,19 +779,25 @@ const MapboxDashboard: React.FC = () => {
         const root = createRoot(iconWrap);
         root.render(<Icon className="w-5 h-5" style={{ color: f.color }} />);
 
-        // hooks: same UX as spikes
-        const name = f.faculty_name;
-        const score = Number(isFinite(f.category_score) ? f.category_score : 0);
+        const facultyInfoForTip = {
+          faculty_name: f.faculty_name,
+          color: f.color,
+          n_responses: f.n_responses ?? 0,
+          knowledge_score: f.knowledge_score ?? 0,
+          uses_score: f.uses_score ?? 0,
+          perceptions_score: f.perceptions_score ?? 0,
+          training_needs_score: f.training_needs_score ?? 0,
+        };
 
         const onEnter = () => {
           overTriggerRef.current = true;
           clearHideTimer();
-          showTooltip(map, lon, lat, name, score);
+          showTooltip(map, lon, lat, facultyInfoForTip);
         };
         const onMove = () => {
           overTriggerRef.current = true;
           clearHideTimer();
-          showTooltip(map, lon, lat, name, score);
+          showTooltip(map, lon, lat, facultyInfoForTip);
         };
         const onLeave = () => {
           overTriggerRef.current = false;
@@ -578,9 +806,12 @@ const MapboxDashboard: React.FC = () => {
         const onClick = () => {
           overTriggerRef.current = true;
           clearHideTimer();
-          showTooltip(map, lon, lat, name, score);
-          setSelectedFaculties((prev) => (prev.includes(name) ? prev : [...prev, name]));
+          showTooltip(map, lon, lat, facultyInfoForTip);
+          setSelectedFaculties((prev) =>
+            prev.includes(f.faculty_name) ? prev : [...prev, f.faculty_name]
+          );
         };
+
         container.addEventListener("mouseenter", onEnter);
         container.addEventListener("mousemove", onMove);
         container.addEventListener("mouseleave", onLeave);
@@ -696,16 +927,26 @@ const MapboxDashboard: React.FC = () => {
 
         const f = feats[0];
         const props: any = f.properties || {};
-        const name: string = props.faculty_name ?? "";
-        const score: number = Number(props.score ?? 0);
+
         const lng: number = Number(props.centerLon ?? e.lngLat.lng);
         const lat: number = Number(props.centerLat ?? e.lngLat.lat);
+
+        const facultyInfoForTip = {
+          faculty_name: props.faculty_name ?? "",
+          color: props.color ?? "#888",
+          n_responses: Number(props.n_responses ?? 0),
+          knowledge_score: Number(props.knowledge_score ?? 0),
+          uses_score: Number(props.uses_score ?? 0),
+          perceptions_score: Number(props.perceptions_score ?? 0),
+          training_needs_score: Number(props.training_needs_score ?? 0),
+        };
 
         map.getCanvas().style.cursor = "pointer";
         overTriggerRef.current = true;
         clearHideTimer();
-        showTooltip(map, lng, lat, name, score);
+        showTooltip(map, lng, lat, facultyInfoForTip);
       });
+
 
       map.on("click", (e) => {
         const feats = map.queryRenderedFeatures(e.point, { layers: ["faculties-layer"] });
@@ -713,18 +954,32 @@ const MapboxDashboard: React.FC = () => {
 
         const f = feats[0];
         const props: any = f.properties || {};
-        const name: string | undefined = props.faculty_name;
-        if (!name) return;
 
         const lng: number = Number(props.centerLon ?? e.lngLat.lng);
         const lat: number = Number(props.centerLat ?? e.lngLat.lat);
-        const score: number = Number(props.score ?? 0);
+
+        const facultyInfoForTip = {
+          faculty_name: props.faculty_name ?? "",
+          color: props.color ?? "#888",
+          n_responses: Number(props.n_responses ?? 0),
+          knowledge_score: Number(props.knowledge_score ?? 0),
+          uses_score: Number(props.uses_score ?? 0),
+          perceptions_score: Number(props.perceptions_score ?? 0),
+          training_needs_score: Number(props.training_needs_score ?? 0),
+        };
 
         overTriggerRef.current = true;
         clearHideTimer();
-        showTooltip(map, lng, lat, name, score);
-        setSelectedFaculties((prev) => (prev.includes(name) ? prev : [...prev, name]));
+        showTooltip(map, lng, lat, facultyInfoForTip);
+
+        const facultyName = props.faculty_name;
+        if (facultyName) {
+          setSelectedFaculties((prev) =>
+            prev.includes(facultyName) ? prev : [...prev, facultyName]
+          );
+        }
       });
+
 
 
 
@@ -1007,7 +1262,7 @@ const MapboxDashboard: React.FC = () => {
                 value={selectedGender}
                 onChange={setSelectedGender}
                 options={[
-                  { value: "", label: "Select gender" },
+                  { value: "", label: "All genders" },
                   { value: "Male", label: "Male" },
                   { value: "Female", label: "Female" },
                   { value: "Non-Binary", label: "Non-binary" },
@@ -1019,7 +1274,7 @@ const MapboxDashboard: React.FC = () => {
                 value={selectedExperience}
                 onChange={setSelectedExperience}
                 options={[
-                  { value: "", label: "Select teaching experience" },
+                  { value: "", label: "All teaching experiences" },
                   { value: "Less than 5", label: "Less than 5 years" },
                   { value: "Between 5 and 10", label: "Between 5 and 10 years" },
                   { value: "Between 11 and 20", label: "Between 11 and 20 years" },
@@ -1031,7 +1286,7 @@ const MapboxDashboard: React.FC = () => {
                 value={selectedProfile}
                 onChange={setSelectedProfile}
                 options={[
-                  { value: "", label: "Select profile" },
+                  { value: "", label: "All profiles" },
                   { value: "Senior Lecturer", label: "Senior Lecturer" },
                   { value: "Associate", label: "Associate" },
                   { value: "Collab", label: "Permanent Collaborator" },
@@ -1043,34 +1298,103 @@ const MapboxDashboard: React.FC = () => {
               />
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <h2 className="text-lg font-medium text-slate-800 mb-1">Selected faculties</h2>
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6" style={{overflowX: 'auto'}}>
+              <h2 className="text-lg font-medium text-slate-800 mb-1" style={{minWidth:'175px'}}>Selected faculties</h2>
               <p className="text-sm text-slate-500 mb-4">{visibleSelected.length} selected</p>
 
-              <div className="space-y-3 max-h-[500px] overflow-y-auto">
+              <div
+                className="space-y-3 max-h-[500px] overflow-y-auto"
+                style={{ minWidth: "175px" }}
+              >
                 {visibleSelected.map((name) => {
                   const f = facultyData.find((d) => d.faculty_name === name)!;
                   const RowIcon = pickIconComponent(f.faculty_name);
+
+                  // remove from chip list
+                  const handleRemove = (e: React.MouseEvent) => {
+                    e.stopPropagation(); // don't trigger the "navigate" click
+                    setSelectedFaculties((prev) => prev.filter((x) => x !== name));
+                  };
+
+                  // navigate to faculty detail (Dash side picks this up)
+                  const handleNavigate = () => {
+                    window.postMessage(
+                      {
+                        type: "ub:navigate-to-faculty",
+                        facultyName: f.faculty_name,
+                      },
+                      "*"
+                    );
+                  };
+
                   return (
                     <div
                       key={name}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition cursor-pointer"
-                      onClick={() => setSelectedFaculties((prev) => prev.filter((x) => x !== name))}
+                      className={`
+                        group
+                        relative
+                        flex items-center gap-3 p-2 rounded-lg
+                        hover:bg-slate-50
+                        transition
+                        cursor-pointer
+                      `}
+                      onClick={handleNavigate}
                     >
-                      <div className="p-2 rounded-lg flex-shrink-0" style={{ backgroundColor: `${f.color}20` }}>
+                      {/* left icon bubble */}
+                      <div
+                        className="p-2 rounded-lg flex-shrink-0"
+                        style={{ backgroundColor: `${f.color}20` }}
+                      >
                         <div style={{ color: f.color }}>
                           <RowIcon className="w-4 h-4" />
                         </div>
                       </div>
+
+                      {/* name + score text */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-700 truncate">{f.faculty_name}</p>
-                        <p className="text-xs text-slate-500">{Number(f.category_score).toFixed(2)}</p>
+                        <p className="text-sm font-medium text-slate-700 truncate">
+                          {f.faculty_name}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {Number(f.category_score).toFixed(2)}
+                        </p>
                       </div>
-                      <ScoreIndicator score={f.category_score} />
+
+                      {/* right side cluster: donut + close button */}
+                      <div
+                        className="relative flex items-start pr-2"
+                        /* pr-2 = breathing room from card edge */
+                      >
+                        {/* donut score with a little right padding so it doesn't collide with the X */}
+                        <div className="pr-6">
+                          <ScoreIndicator score={f.category_score} />
+                        </div>
+
+                        {/* Close ('remove') button */}
+                        <button
+                          onClick={handleRemove}
+                          className={`
+                            absolute top-0 right-0
+                            hidden group-hover:flex
+                            items-center justify-center
+                            h-5 w-5 rounded-full
+                            border border-slate-300
+                            bg-white text-slate-500
+                            shadow-sm
+                            hover:bg-red-50 hover:text-red-600 hover:border-red-300
+                            focus:outline-none
+                          `}
+                          title="Remove from comparison"
+                        >
+                          <X className="w-3 h-3" strokeWidth={2} />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
               </div>
+
+
             </div>
           </div>
 
@@ -1089,93 +1413,121 @@ const MapboxDashboard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-3 mt-6" style={{marginTop:'13px'}}>
-              {/* Faculty Comparison */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                <h3 className="text-lg font-medium text-slate-800 mb-4">Faculty Comparison</h3>
+             {/* Faculty Comparison */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+              <h3 className="text-lg font-medium text-slate-800 mb-4">Faculty Comparison</h3>
 
-                {comparisonData.length === 0 ? (
-                  <div className="h-[300px] bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl flex items-center justify-center">
-                    <div className="text-center">
-                      <TrendingUp className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                      <p className="text-slate-600 font-medium">Bar Chart</p>
-                      <p className="text-sm text-slate-500 mt-1">
-                        Select a faculty on the map to start a comparative analysis
-                      </p>
-                    </div>
+              {comparisonData.length === 0 ? (
+                <div className="h-[300px] bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl flex items-center justify-center">
+                  <div className="text-center">
+                    <TrendingUp className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                    <p className="text-slate-600 font-medium">Bar Chart</p>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Select a faculty on the map to start a comparative analysis
+                    </p>
                   </div>
-                ) : (
-                  <div
-                    ref={chartBoxRef}
-                    className="relative rounded-xl bg-gradient-to-br from-white to-slate-50 p-4 h-[300px] overflow-y-auto"
-                  >
-                    <ol className="space-y-3 pr-2">
-                      {comparisonData.map((item) => {
-                        const RowIcon = pickIconComponent(item.originalName);
-                        return (
-                          <li
-                            key={item.originalName}
-                            className="flex items-center gap-3"
-                            onMouseEnter={(e) => showChartTip(e, item.name, item.score)}
-                            onMouseMove={(e) => showChartTip(e, item.name, item.score)}
-                            onMouseLeave={hideChartTip}
+                </div>
+              ) : (
+                <div
+                  ref={chartBoxRef}
+                  className="relative rounded-xl bg-gradient-to-br from-white to-slate-50 p-4 h-[300px] overflow-y-auto"
+                >
+                  <ol className="space-y-3 pr-2">
+                    {comparisonData.map((item) => {
+                      const RowIcon = pickIconComponent(item.originalName);
+                      return (
+                        <li
+                          key={item.originalName}
+                          className={`
+                            flex flex-col xl:flex-row
+                            xl:items-center
+                            gap-2 xl:gap-3
+                          `}
+                          onMouseEnter={(e) => showChartTip(e, item.name, item.score)}
+                          onMouseMove={(e) => showChartTip(e, item.name, item.score)}
+                          onMouseLeave={hideChartTip}
+                        >
+                          {/* Name + icon */}
+                          <div
+                            className={`
+                              flex items-center gap-2
+                              text-sm font-semibold text-slate-800 truncate
+                              w-full
+                              xl:w-28 2xl:w-32
+                              shrink-0
+                            `}
                           >
-                            {/* Name + icon */}
-                            <div className="w-44 shrink-0 truncate text-sm font-semibold text-slate-800 flex items-center gap-2">
-                              <span
-                                className="inline-flex items-center justify-center rounded-md p-1"
-                                style={{ background: `${item.color}22`, color: item.color }}
-                                title={item.originalName}
-                              >
-                                <RowIcon className="w-4 h-4" />
-                              </span>
-                              <span className="truncate">{item.name}</span>
-                            </div>
+                            <span
+                              className="inline-flex items-center justify-center rounded-md p-1"
+                              style={{ background: `${item.color}22`, color: item.color }}
+                              title={item.originalName}
+                            >
+                              <RowIcon className="w-4 h-4" />
+                            </span>
+                            <span className="truncate">{item.name}</span>
+                          </div>
 
-                            {/* Bar with 25/50/75/100 tick lines */}
-                            <div className="relative flex-1 h-8 rounded-lg border border-slate-200 bg-slate-100 overflow-hidden">
-                              {[25, 50, 75, 100].map((p) => (
-                                <div
-                                  key={p}
-                                  className="absolute top-0 bottom-0 border-l border-slate-200"
-                                  style={{ left: `${p}%` }}
-                                />
-                              ))}
+                          {/* Bar */}
+                          <div
+                            className={`
+                              relative
+                              w-full xl:flex-1
+                              h-[2.5rem] xl:h-8
+                              min-h-[2.5rem]
+                              rounded-lg border border-slate-200 bg-slate-100 overflow-hidden
+                            `}
+                          >
+                            {[25, 50, 75, 100].map((p) => (
                               <div
-                                className="absolute inset-y-0 left-0 rounded-r-lg transition-all duration-500"
-                                style={{
-                                  width: `${Math.max(0, Math.min(100, item.score))}%`,
-                                  background: item.color || "#3b82f6",
-                                }}
-                                role="meter"
-                                aria-label={`${item.name} score`}
-                                aria-valuenow={Math.round(item.score)}
-                                aria-valuemin={0}
-                                aria-valuemax={100}
+                                key={p}
+                                className="absolute top-0 bottom-0 border-l border-slate-200"
+                                style={{ left: `${p}%` }}
                               />
-                            </div>
+                            ))}
 
-                            {/* Numeric score */}
-                            <div className="w-12 text-right text-sm font-semibold text-slate-800">
-                              {item.score.toFixed(1)}
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ol>
+                            <div
+                              className="absolute inset-y-0 left-0 rounded-r-lg transition-all duration-500"
+                              style={{
+                                width: `${Math.max(0, Math.min(100, item.score))}%`,
+                                background: item.color || "#3b82f6",
+                              }}
+                              role="meter"
+                              aria-label={`${item.name} score`}
+                              aria-valuenow={Math.round(item.score)}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                            />
+                          </div>
 
-                    {/* Hover tooltip */}
-                    {chartTip?.show && (
-                      <div
-                        className="absolute pointer-events-none px-2 py-1 text-[11px] rounded-md shadow-sm border border-slate-200 bg-white text-slate-700"
-                        style={{ left: chartTip.x, top: chartTip.y }}
-                      >
-                        <span className="font-semibold">{chartTip.name}</span>
-                        <span className="ml-2">{chartTip.score.toFixed(1)}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                          {/* Numeric score */}
+                          <div
+                            className={`
+                              w-full xl:w-12
+                              text-right text-sm font-semibold text-slate-800
+                            `}
+                          >
+                            {item.score.toFixed(1)}
+                          </div>
+                        </li>
+
+
+                      );
+                    })}
+                  </ol>
+
+                  {/* Hover tooltip */}
+                  {chartTip?.show && (
+                    <div
+                      className="absolute pointer-events-none px-2 py-1 text-[11px] rounded-md shadow-sm border border-slate-200 bg-white text-slate-700"
+                      style={{ left: chartTip.x, top: chartTip.y }}
+                    >
+                      <span className="font-semibold">{chartTip.name}</span>
+                      <span className="ml-2">{chartTip.score.toFixed(1)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
               {/* Multi-dimensional Analysis (Spider Chart) */}
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">

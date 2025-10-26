@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   GraduationCap,
   ChevronRight,
@@ -62,18 +62,62 @@ const shortDisplayName = (name: string) => {
 const FacultySelector: React.FC<FacultySelectorProps> = ({ onFacultySelect }) => {
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
+  // ref to something we actually render, so we can locate the host custom element
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  // helper to go from facultyName -> trigger parent
+  const selectFacultyByName = useCallback(
+    (facultyName: string) => {
+      const match = faculties.find((f) => f.name === facultyName);
+      if (match && onFacultySelect) {
+        onFacultySelect(match); // this flips FacultyFlow into FacultyVisualization
+      } else if (!match) {
+        console.warn("[FacultySelector] No faculty found for", facultyName);
+      }
+    },
+    [onFacultySelect]
+  );
+
+  // listen for "external-select-faculty" on the *custom element host*
+  useEffect(() => {
+    // find the <ub-faculty-selector> element that this React tree is mounted in
+    // closest() is safer than parentElement in case the structure changes
+    const hostEl = rootRef.current?.closest("ub-faculty-selector") as HTMLElement | null;
+    if (!hostEl) return;
+
+    const handler = (e: Event) => {
+      const custom = e as CustomEvent<{ facultyName?: string }>;
+      const pickedName = custom.detail?.facultyName;
+      if (!pickedName) return;
+      selectFacultyByName(pickedName);
+    };
+
+    hostEl.addEventListener("external-select-faculty", handler as EventListener);
+    return () => {
+      hostEl.removeEventListener("external-select-faculty", handler as EventListener);
+    };
+  }, [selectFacultyByName]);
+
+  // normal local click
   const handleFacultyClick = (faculty: Faculty) => {
     onFacultySelect?.(faculty);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
+    // anchor so Dash can scroll here
+    <div
+      ref={rootRef}
+      id="faculty-visualization"
+      className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4"
+    >
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
           <div className="flex items-center justify-center mb-4">
             <GraduationCap className="w-8 h-8 text-slate-600 mr-3" />
-            <h1 className="text-4xl font-light text-slate-800">University of Barcelona</h1>
+            <h1 className="text-4xl font-light text-slate-800">
+              University of Barcelona
+            </h1>
           </div>
           <p className="text-slate-600 text-lg font-light">
             Select a faculty to explore its data visualizations
@@ -87,71 +131,81 @@ const FacultySelector: React.FC<FacultySelectorProps> = ({ onFacultySelect }) =>
 
             return (
               <div
-                key={faculty.name || `faculty-${index}`}   // ← add this
+                key={faculty.name || `faculty-${index}`}
                 className={`
                   relative cursor-pointer transform transition-all duration-300 ease-out
-                  ${hoveredCard === faculty.name ? 'scale-105 -translate-y-2' : ''}
+                  ${hoveredCard === faculty.name ? "scale-105 -translate-y-2" : ""}
                 `}
                 onMouseEnter={() => setHoveredCard(faculty.name)}
                 onMouseLeave={() => setHoveredCard(null)}
                 onClick={() => handleFacultyClick(faculty)}
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-              {/* Card */}
-              <div
-                className="bg-white rounded-2xl shadow-sm overflow-hidden h-32 relative transition-shadow duration-300"
-                style={{
-                  boxShadow:
-                    hoveredCard === faculty.name
-                      ? '0 12px 28px rgba(2, 6, 23, 0.12)'
-                      : '0 2px 6px rgba(2, 6, 23, 0.06)',
-                  border: hoveredCard === faculty.name
-                    ? `1px solid ${faculty.color}`
-                    : '1px solid #e2e8f0', // neutral
-                }}
-              >
-                {/* Accent bar */}
+                {/* Card */}
                 <div
-                  className="absolute top-0 left-0 right-0"
-                  style={{ height: hoveredCard === faculty.name ? 4 : 1, backgroundColor: faculty.color, transition: 'height 200ms ease' }}
-                />
-
-                {/* Content */}
-                <div className="p-6 h-full flex flex-col justify-between">
-                  <h3 className="font-medium text-slate-800 text-lg leading-tight mb-2">
-                    {displayName}
-                  </h3>
-
-                  <div className="flex items-center justify-between">
-                    <div
-                      className="p-2 rounded-lg"
-                      style={{ backgroundColor: `${faculty.color}20` }}
-                    >
-                      <div style={{ color: faculty.color }}>{faculty.icon}</div>
-                    </div>
-
-                    <ChevronRight
-                      className="w-5 h-5 transition-all duration-200"
-                      style={{
-                        color: hoveredCard === faculty.name ? '#334155' : '#94a3b8',
-                        transform: hoveredCard === faculty.name ? 'translateX(4px)' : 'translateX(0)',
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Overlay (no Tailwind group-hover) */}
-                <div
-                  className="absolute inset-0 pointer-events-none"
+                  className="bg-white rounded-2xl shadow-sm overflow-hidden h-32 relative transition-shadow duration-300"
                   style={{
-                    backgroundColor: faculty.color,
-                    opacity: hoveredCard === faculty.name ? 0.06 : 0,
-                    transition: 'opacity 300ms ease',
+                    boxShadow:
+                      hoveredCard === faculty.name
+                        ? "0 12px 28px rgba(2, 6, 23, 0.12)"
+                        : "0 2px 6px rgba(2, 6, 23, 0.06)",
+                    border:
+                      hoveredCard === faculty.name
+                        ? `1px solid ${faculty.color}`
+                        : "1px solid #e2e8f0",
                   }}
-                />
-              </div>
-            </div>
+                >
+                  {/* Accent bar */}
+                  <div
+                    className="absolute top-0 left-0 right-0"
+                    style={{
+                      height: hoveredCard === faculty.name ? 4 : 1,
+                      backgroundColor: faculty.color,
+                      transition: "height 200ms ease",
+                    }}
+                  />
 
+                  {/* Content */}
+                  <div className="p-6 h-full flex flex-col justify-between">
+                    <h3 className="font-medium text-slate-800 text-lg leading-tight mb-2">
+                      {displayName}
+                    </h3>
+
+                    <div className="flex items-center justify-between">
+                      <div
+                        className="p-2 rounded-lg"
+                        style={{ backgroundColor: `${faculty.color}20` }}
+                      >
+                        <div style={{ color: faculty.color }}>{faculty.icon}</div>
+                      </div>
+
+                      <ChevronRight
+                        className="w-5 h-5 transition-all duration-200"
+                        style={{
+                          color:
+                            hoveredCard === faculty.name
+                              ? "#334155"
+                              : "#94a3b8",
+                          transform:
+                            hoveredCard === faculty.name
+                              ? "translateX(4px)"
+                              : "translateX(0)",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Hover overlay tint */}
+                  <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                      backgroundColor: faculty.color,
+                      opacity: hoveredCard === faculty.name ? 0.06 : 0,
+                      transition: "opacity 300ms ease",
+                    }}
+                  />
+                </div>
+              </div>
             );
           })}
         </div>
@@ -159,7 +213,8 @@ const FacultySelector: React.FC<FacultySelectorProps> = ({ onFacultySelect }) =>
         {/* Footer note */}
         <div className="text-center mt-12">
           <p className="text-slate-500 text-sm">
-            Click on any faculty card to explore detailed visualizations and analytics
+            Click on any faculty card to explore detailed visualizations and
+            analytics
           </p>
         </div>
       </div>
