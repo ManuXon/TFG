@@ -1,37 +1,36 @@
+// UsesApplicationsWordCloud.tsx
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import Plot from "react-plotly.js";
 
-type DistResponse = {
-  label: string;
-  levels: string[];
-  counts: Record<string, number>;
-  total: number;
+// How often do you use AI for this task?
+const LEVEL_ORDER = [
+  "Never",
+  "Sometimes",
+  "Often",
+  "Very often",
+] as const;
+
+// For tooltip spider chart we want short labels around circle
+const SHORT_LEVELS = ["Never", "Very often", "Some", "Often"] as const;
+
+// map short -> long (in this case they are basically same,
+// but we'll keep structure consistent with Knowledge version)
+const SHORT_TO_LONG: Record<(typeof SHORT_LEVELS)[number], string> = {
+  "Never": "Never",
+  "Very often": "Very often",
+  "Some": "Sometimes",
+  "Often": "Often",
 };
 
-const LEVEL_ORDER = [
-  "I don't know any",
-  "I know a few",
-  "I know several",
-  "I know many",
+// placement order around spider
+const POLAR_ORDER: (typeof SHORT_LEVELS)[number][] = [
+  "Never",
+  "Very often",
+  "Some",
+  "Often",
 ];
 
-// Short labels for the radar/spider (fixed order)
-const SHORT_LEVELS = ["None", "Few", "Several", "Many"] as const;
-
-// reverse map
-const SHORT_TO_LONG: Record<(typeof SHORT_LEVELS)[number], string> = {
-  None: "I don't know any",
-  Few: "I know a few",
-  Several: "I know several",
-  Many: "I know many",
-};
-// POLAR order controls where labels sit around the circle.
-// Index 0 is at 0° (right), index 2 at 180° (left).
-// This puts None (right) and Few (left).
-const POLAR_ORDER: (typeof SHORT_LEVELS)[number][] = ["None", "Many", "Few", "Several"];
-
-// Smaller tooltip chart size so labels fit comfortably
 const TOOLTIP_W = 200;
 const TOOLTIP_H = 148;
 
@@ -74,13 +73,20 @@ function rgbOrHexToRgba(input: string, alpha = 1): string {
   return input;
 }
 
+type DistResponse = {
+  label: string;
+  levels: string[];
+  counts: Record<string, number>;
+  total: number;
+};
+
 type Props = {
   facultyName: string;
   facultyColor?: string;
 };
 
-const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyColor }) => {
-  const tint = facultyColor ?? "#64748b";
+const UsesApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyColor }) => {
+  const tint = facultyColor ?? "#6b21a8"; // default purple-tinted
 
   const [svgMarkup, setSvgMarkup] = useState<string | null>(null);
   const [gender, setGender] = useState("All");
@@ -112,7 +118,7 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
 
       const url = `http://localhost:8000/api/faculty/${encodeURIComponent(
         facultyName
-      )}/knowledge-applications-wordcloud-svg?${params.toString()}`;
+      )}/uses-applications-wordcloud-svg?${params.toString()}`;
 
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -222,7 +228,7 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
             fetch(
               `http://localhost:8000/api/faculty/${encodeURIComponent(
                 facultyName
-              )}/knowledge-applications-distribution-count?${params.toString()}`
+              )}/uses-applications-distribution-count?${params.toString()}`
             )
               .then((r) => r.json())
               .then((data: DistResponse) => {
@@ -232,7 +238,7 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
               .catch(() => {
                 setDist({
                   label,
-                  levels: LEVEL_ORDER,
+                  levels: Array.from(LEVEL_ORDER),
                   counts: LEVEL_ORDER.reduce((a, v) => ((a[v] = 0), a), {} as Record<string, number>),
                   total: 0,
                 });
@@ -262,7 +268,7 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
       setNoData(texts.length === 0);
       if (texts.length === 0) return true;
 
-      // font range + subtle brightness
+      // gather font size range for alpha scaling
       let minFS = Infinity;
       let maxFS = -Infinity;
       texts.forEach((t) => {
@@ -274,6 +280,7 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
       if (!isFinite(maxFS) || maxFS <= 0) maxFS = 72;
       fontRangeRef.current = { min: minFS, max: maxFS };
 
+      // small brightness tweak
       texts.forEach((t) => {
         const fs = parseFontSizePx(t as SVGTextElement);
         const norm = Math.max(0, Math.min(1, (fs - minFS) / Math.max(1, maxFS - minFS)));
@@ -325,7 +332,7 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
     };
   }, [responsiveSvg, facultyName, gender, experience, profile, showTooltip]);
 
-  // Tinted styles for the centered “no data” message
+  // tinted “no data” look
   const tintBg = rgbOrHexToRgba(tint, 0.06);
   const tintBorder = `1px solid ${rgbOrHexToRgba(tint, 0.25)}`;
   const tintText = tint;
@@ -334,7 +341,12 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
     <div>
       {/* Filters */}
       <div className="flex flex-wrap justify-center gap-2 mb-6">
-        <select value={gender} onChange={(e) => setGender(e.target.value)} className="border border-slate-300 rounded-md px-3 py-1 text-slate-700 text-sm shadow-sm hover:border-slate-400 focus:ring-2 focus:ring-red-200 transition" aria-label="Filter by gender">
+        <select
+          value={gender}
+          onChange={(e) => setGender(e.target.value)}
+          className="border border-slate-300 rounded-md px-3 py-1 text-slate-700 text-sm shadow-sm hover:border-slate-400 focus:ring-2 focus:ring-purple-200 transition"
+          aria-label="Filter by gender"
+        >
           <option value="All">All Genders</option>
           <option value="Female">Female</option>
           <option value="Male">Male</option>
@@ -342,7 +354,12 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
           <option value="No answer">No answer</option>
         </select>
 
-        <select value={experience ?? ""} onChange={(e) => setExperience(e.target.value || null)} className="border border-slate-300 rounded-md px-3 py-1 text-slate-700 text-sm shadow-sm hover:border-slate-400 focus:ring-2 focus:ring-red-200 transition" aria-label="Filter by teaching experience">
+        <select
+          value={experience ?? ""}
+          onChange={(e) => setExperience(e.target.value || null)}
+          className="border border-slate-300 rounded-md px-3 py-1 text-slate-700 text-sm shadow-sm hover:border-slate-400 focus:ring-2 focus:ring-purple-200 transition"
+          aria-label="Filter by teaching experience"
+        >
           <option value="">All Experience</option>
           <option value="Less than 5">Less than 5</option>
           <option value="Between 5 and 10">Between 5 and 10</option>
@@ -350,7 +367,12 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
           <option value="More than 20">More than 20</option>
         </select>
 
-        <select value={profile ?? ""} onChange={(e) => setProfile(e.target.value || null)} className="border border-slate-300 rounded-md px-3 py-1 text-slate-700 text-sm shadow-sm hover:border-slate-400 focus:ring-2 focus:ring-red-200 transition" aria-label="Filter by profile">
+        <select
+          value={profile ?? ""}
+          onChange={(e) => setProfile(e.target.value || null)}
+          className="border border-slate-300 rounded-md px-3 py-1 text-slate-700 text-sm shadow-sm hover:border-slate-400 focus:ring-2 focus:ring-purple-200 transition"
+          aria-label="Filter by profile"
+        >
           <option value="">All Profiles</option>
           <option value="Senior Lecturer">Senior Lecturer</option>
           <option value="Associate">Associate</option>
@@ -363,10 +385,9 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
       </div>
 
       <h3 className="text-[34px] text-slate-800 mb-4 text-center">
-        What's the knowledge among tasks?
+        Where is AI actually being used?
       </h3>
 
-      {/* Display: keep opacity steady so “no data” doesn’t fade away */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -405,11 +426,12 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
             className="w-full max-w-5xl h-[420px] rounded-lg flex items-center justify-center"
             style={{ background: tintBg, border: tintBorder }}
           >
-            <p style={{ color: tintText, fontWeight: 600 }}>No data for the selected filters.</p>
+            <p style={{ color: tintText, fontWeight: 600 }}>
+              No data for the selected filters.
+            </p>
           </div>
         )}
 
-        {/* Hover tooltip with spider chart — smaller + short axis labels */}
         {showTooltip && hoverLabel && (
           <div
             className="absolute z-50 rounded-xl shadow-lg border border-slate-200 bg-white p-2"
@@ -417,34 +439,38 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
           >
             <div className="flex items-center justify-between px-1">
               <span className="text-xs font-medium text-slate-700">{hoverLabel}</span>
-              <span className="inline-block w-2 h-2 rounded-full" style={{ background: hoverColor }} />
+              <span
+                className="inline-block w-2 h-2 rounded-full"
+                style={{ background: hoverColor }}
+              />
             </div>
 
             {dist && dist.total > 0 ? (
               <Plot
                 data={[
                   (() => {
-                    // build r values in the same order as POLAR_ORDER
+                    // match POLAR_ORDER for radial plot
                     const rCore = POLAR_ORDER.map(short => {
                       const long = SHORT_TO_LONG[short];
                       return (dist.counts[long] || 0);
                     });
                     return {
                       type: "scatterpolar" as const,
-                      r: rCore.concat(rCore[0]),                   // close the loop
-                      theta: POLAR_ORDER.concat(POLAR_ORDER[0]),   // short labels, same order
+                      r: rCore.concat(rCore[0]),
+                      theta: POLAR_ORDER.concat(POLAR_ORDER[0]),
                       fill: "toself",
                       name: hoverLabel!,
                       line: { color: hoverColor, width: 2 },
                       fillcolor: rgbOrHexToRgba(hoverColor, hoverAlpha),
-                      hovertemplate: "<b>%{theta}</b><br>Count: <b>%{r}</b><extra></extra>",
+                      hovertemplate:
+                        "<b>%{theta}</b><br>Count: <b>%{r}</b><extra></extra>",
                     };
                   })(),
                 ]}
                 layout={{
                   margin: { t: 6, r: 10, b: 6, l: 10 },
                   polar: {
-                    domain: { x: [0,100], y: [0.08, 0.93] }, // shrinks the plot so labels fit
+                    domain: { x: [0,100], y: [0.08, 0.93] },
                     bgcolor: "rgba(0,0,0,0)",
                     radialaxis: {
                       showticklabels: false,
@@ -454,9 +480,9 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
                     },
                     angularaxis: {
                       categoryorder: "array",
-                      categoryarray: POLAR_ORDER,     // <-- enforce placement (None at 0°, Few at 180°)
-                      rotation: 0,                    // 0° = right; set 180 to flip left/right if you prefer
-                      direction: "counterclockwise",  // default; change to "clockwise" if you want the other spin
+                      categoryarray: POLAR_ORDER,
+                      rotation: 0,
+                      direction: "counterclockwise",
                       gridcolor: "#e2e8f0",
                       linecolor: "#cbd5e1",
                       tickfont: { size: 8, color: "#334155" },
@@ -466,7 +492,7 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
                   showlegend: false,
                   paper_bgcolor: "rgba(0,0,0,0)",
                   plot_bgcolor: "rgba(0,0,0,0)",
-                  height: TOOLTIP_H, // you already set smaller tooltip H/W
+                  height: TOOLTIP_H,
                 }}
                 config={{ displayModeBar: false, staticPlot: true }}
                 style={{ width: "100%", height: TOOLTIP_H }}
@@ -474,7 +500,9 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
             ) : (
               <div className="px-2 py-3 text-center">
                 <p className="text-xs text-slate-500">
-                  No responses for <span className="font-medium">{hoverLabel}</span> with current filters.
+                  No responses for{" "}
+                  <span className="font-medium">{hoverLabel}</span>{" "}
+                  with current filters.
                 </p>
               </div>
             )}
@@ -485,4 +513,4 @@ const KnowledgeApplicationsWordCloud: React.FC<Props> = ({ facultyName, facultyC
   );
 };
 
-export default KnowledgeApplicationsWordCloud;
+export default UsesApplicationsWordCloud;

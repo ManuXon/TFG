@@ -5,6 +5,10 @@ import {
   Palette, Microscope, Globe, Scale, TrendingUp, Pill, MessageSquare,
   Brain, Atom, Map as MapIcon, Video, Heart, Calculator, Stethoscope, FlaskConical,
 } from "lucide-react";
+import UsesFunctionalityChart from "./UsesFunctionalityChart";
+import UsesBarChart from "./UsesBarChart";
+import ProposesPieChart from "./ProposesPieChart";
+import UsesApplicationsWordCloud from "./UsesApplicationsWordCloud";
 import KnowledgeApplicationsWordCloud from "./KnowledgeApplicationsWordCloud";
 import Plot from 'react-plotly.js';
 
@@ -556,25 +560,13 @@ const KnowledgeFunctionalityChart: React.FC<{
   const lt684 = winW < 684;
   const lt600 = winW < 600;
 
-  // base title for all 3 charts (radar/heatmap/bar)
-  const baseTitleFont = lt600 ? 14        // <600px → smallest
-                      : lt740 ? 18        // <740px → medium
-                               : 21;      // default desktop
-
-  // bar/heatmap specific title size
-  const barTitleSize = lt600 ? 14         // <600px even smaller
-                    : lt684 ? 15          // <684px
-                             : baseTitleFont;
-
-  // legend for grouped bar
+  const baseTitleFont = lt600 ? 14 : lt740 ? 18 : 21;
+  const barTitleSize = lt600 ? 14 : lt684 ? 15 : baseTitleFont;
   const barLegendSize = lt684 ? 11 : 14;
-
-  // radar axis label + legend sizing (unchanged logic except we keep it readable)
   const radarLegendSize   = lt740 ? 12 : 14;
   const radarTickFontSize = lt740 ? 10 : 13;
 
-
-  // RGBA helper for tinted styles
+  // RGBA helper for tinted "no data"
   const rgba = (input: string, a = 1) => {
     const s = input.trim();
     if (/^rgba?\(/i.test(s)) {
@@ -586,9 +578,7 @@ const KnowledgeFunctionalityChart: React.FC<{
       return `rgba(${r},${g},${b},${a})`;
     }
     if (s[0] === "#") {
-      let r = 0,
-        g = 0,
-        b = 0;
+      let r = 0, g = 0, b = 0;
       if (s.length === 4) {
         r = parseInt(s[1] + s[1], 16);
         g = parseInt(s[2] + s[2], 16);
@@ -638,7 +628,7 @@ const KnowledgeFunctionalityChart: React.FC<{
     fetchData();
   }, [fetchData]);
 
-  // Static labels
+  // Static labels (match backend order)
   const funcLabels = [
     "Text Creation",
     "Multimedia Creation",
@@ -660,6 +650,7 @@ const KnowledgeFunctionalityChart: React.FC<{
   const matrix = data.map((d) =>
     funcLabels.map((_, i) => Object.values(d)[i + 1])
   );
+
   const colorPalette = [
     "#7f1d1d",
     "#991b1b",
@@ -816,7 +807,9 @@ const KnowledgeFunctionalityChart: React.FC<{
                     colorscale: "Reds",
                     colorbar: { title: { text: "Familiarity" } },
                     hovertemplate:
-                      `<b>IA Knowledge:</b> %{y}<br><b>Functionality:</b> %{x}<br><b>Avg Familiarity:</b> %{z:.2f}<extra></extra>`,
+                      `<b>IA Knowledge:</b> %{y}` +
+                      `<br><b>Functionality:</b> %{x}` +
+                      `<br><b>Avg Familiarity:</b> %{z:.2f}<extra></extra>`,
                   },
                 ]}
                 layout={{
@@ -831,13 +824,14 @@ const KnowledgeFunctionalityChart: React.FC<{
                     tickfont: { size: radarTickFontSize },
                   },
                   xaxis: { tickfont: { size: 11 } },
-                  margin: { t: 110, l: 95, r: 0, b: 110 },
+                  // ADDED right margin + using 95% width in style below
+                  margin: { t: 110, l: 135, r: 0, b: 110 },
                   paper_bgcolor: "rgba(0,0,0,0)",
                   plot_bgcolor: "rgba(0,0,0,0)",
                   font: { color: "#334155" },
                 }}
                 config={{ displayModeBar: false }}
-                style={{ width: "100%", height: "100%" }}
+                style={{ width: "95%", height: "100%" }}
               />
             )}
 
@@ -846,9 +840,9 @@ const KnowledgeFunctionalityChart: React.FC<{
                 data={data.map((d, i) => {
                   const radarColors: Record<string, string> = {
                     "No knowledge": "#b91c1c",
-                    "Little knowledge": "#fb923c",
-                    "Good knowledge": "#facc15",
-                    "Expert knowledge": "#84cc16",
+                    "Little knowledge": "#fa7112",
+                    "Good knowledge": "#fd9c49",
+                    "Expert knowledge": "#fac681",
                   };
                   const color =
                     radarColors[d.knowledge_label] || "#b91c1c";
@@ -861,7 +855,8 @@ const KnowledgeFunctionalityChart: React.FC<{
                     line: { color, width: 3 },
                     fillcolor: color + "40",
                     hovertemplate:
-                      `<b>%{theta}</b><br>Knowledge Level: <b>${d.knowledge_label}</b><br>Avg Familiarity: %{r:.2f}<extra></extra>`,
+                      `<b>%{theta}</b><br>Knowledge Level: <b>${d.knowledge_label}</b>` +
+                      `<br>Avg Familiarity: %{r:.2f}<extra></extra>`,
                   };
                 })}
                 layout={{
@@ -1119,61 +1114,87 @@ const FacultyVisualization: React.FC<{
                     >
                       <div className="min-h-[400px] bg-slate-50 rounded-xl p-8 border-2 border-dashed border-slate-200">
                         {area.name === 'Knowledge' ? (
-                          <>
-                            <div className="flex flex-col gap-6">
-                              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                <KnowledgeFunctionalityChart
-                                  facultyName={faculty.name}
-                                  facultyColor={faculty.color}
-                                />
-                              </div>
-                              <div className="flex flex-col lg:flex-row gap-6">
-                                <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                  <KnowledgeBarChart
-                                    facultyName={faculty.name}
-                                  />
-                                </div>
-                                <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                  <NormativePieChart
-                                    facultyName={faculty.name}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Wordcloud hidden on small screens (<768px) */}
-                            <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
-                              <KnowledgeApplicationsWordCloud
+                        <>
+                          <div className="flex flex-col gap-6">
+                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <KnowledgeFunctionalityChart
                                 facultyName={faculty.name}
                                 facultyColor={faculty.color}
                               />
                             </div>
-                          </>
-                        ) : (
-                          <div className="text-center py-16">
-                            <div
-                              className="inline-flex p-4 rounded-full mb-4"
-                              style={{
-                                backgroundColor: `${area.color}15`,
-                              }}
-                            >
-                              <div style={{ color: area.color }}>
-                                {area.icon}
+
+                            <div className="flex flex-col lg:flex-row gap-6">
+                              <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                <KnowledgeBarChart facultyName={faculty.name} />
+                              </div>
+
+                              <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                <NormativePieChart facultyName={faculty.name} />
                               </div>
                             </div>
-                            <h3 className="text-xl font-medium text-slate-700 mb-2">
-                              {area.name} Visualizations
-                            </h3>
-                            <p className="text-slate-500">
-                              Your {area.name.toLowerCase()} charts and
-                              graphs will be displayed here
-                            </p>
-                            <p className="text-slate-400 text-sm mt-2">
-                              This container can hold multiple
-                              visualizations and will expand as needed
-                            </p>
                           </div>
-                        )}
+
+                          {/* Wordcloud hidden on <768px */}
+                          <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
+                            <KnowledgeApplicationsWordCloud
+                              facultyName={faculty.name}
+                              facultyColor={faculty.color}
+                            />
+                          </div>
+                        </>
+                      ) : area.name === 'Uses' ? (
+                        <>
+                          <div className="flex flex-col gap-6">
+                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <UsesFunctionalityChart
+                                facultyName={faculty.name}
+                                facultyColor={faculty.color}
+                              />
+                            </div>
+
+                            <div className="flex flex-col lg:flex-row gap-6">
+                              <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                <UsesBarChart facultyName={faculty.name} />
+                              </div>
+
+                              <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                <ProposesPieChart facultyName={faculty.name} />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Wordcloud hidden on <768px */}
+                          <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
+                            <UsesApplicationsWordCloud
+                              facultyName={faculty.name}
+                              facultyColor={faculty.color}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center py-16">
+                          <div
+                            className="inline-flex p-4 rounded-full mb-4"
+                            style={{
+                              backgroundColor: `${area.color}15`,
+                            }}
+                          >
+                            <div style={{ color: area.color }}>
+                              {area.icon}
+                            </div>
+                          </div>
+                          <h3 className="text-xl font-medium text-slate-700 mb-2">
+                            {area.name} Visualizations
+                          </h3>
+                          <p className="text-slate-500">
+                            Your {area.name.toLowerCase()} charts and graphs will be displayed here
+                          </p>
+                          <p className="text-slate-400 text-sm mt-2">
+                            This container can hold multiple visualizations and will expand as needed
+                          </p>
+                        </div>
+                      )}
+
                       </div>
                     </div>
                   </div>

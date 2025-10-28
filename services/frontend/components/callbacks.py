@@ -464,55 +464,154 @@ def register_callbacks(app):
             disable_right = current_index_map == len(score_categories) - 1
             nav_style = {"display": "flex"}
 
-        else:
-            # Treemap logic
-            title = "Treemap: Sizing faculties"
-            data = get_treemap_data(gender, teaching_experience, ub_profile)
 
-            # Define colors for dimensions
+
+        else:
+
+            # --- TREEMAP MODE ---
+            title = "Treemap: Sizing faculties"
+
+            raw_rows = get_treemap_data(gender, teaching_experience, ub_profile)
+            tdf = pd.DataFrame(raw_rows)
+
+            # Handle "no data" case
+            if tdf.empty:
+                fig = go.Figure()
+                fig.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    margin=dict(t=20, l=20, r=20, b=20),
+                )
+
+                disable_left = True
+                disable_right = True
+                nav_style = {"display": "none"}
+                return fig, title, disable_left, disable_right, nav_style
+
+            # soft palette per dimension
             dimension_colors = {
-                "Knowledge": "#fecaca",  # Red
-                "Uses": "#e9d5ff",
-                "Perceptions": "#bbf7d0",
-                "Training": "#fef08a",
+                "Knowledge": "#fecaca",  # light red
+                "Uses": "#e9d5ff",  # light violet
+                "Perceptions": "#bbf7d0",  # light green
+                "Training": "#fef08a",  # light yellow
             }
 
-            # Create treemap
-            fig = px.treemap(
-                data,
-                path=["parent", "label"],  # Specify hierarchy: Overall -> Faculty -> Dimension
-                values="value",
-                color='overall_faculty_score',  # Use "color" column to differentiate faculty and dimension colors
+            # aggregate per faculty so we know each faculty's total (sum of its 4 dims)
+            fac_agg = (
+                tdf.groupby(["faculty_name", "short_name", "color"], dropna=False)
+                .agg(
+                    faculty_total_value=("value", "sum"),
+                    overall_faculty_score=("overall_faculty_score", "mean"),
+                )
+                .reset_index()
             )
 
-            # Apply custom color mapping
-            fig.for_each_trace(
-                lambda t: t.update(
-                    marker_colors=[
-                        dimension_colors[id.split("/")[1]] if len(id.split("/")) == 2 else c
-                        for c, id in zip(t.marker.colors, t.ids)
-                    ]
+            # ---- arrays for treemap ----
+            ids: list[str] = []
+            labels: list[str] = []
+            parents: list[str] = []
+            values: list[float] = []
+            colors: list[str] = []
+            hovertexts: list[str] = []
+            text_list: list[str] = []  # visible text drawn in each box
+
+            # ---- ROOT NODE ----
+            root_label = "All Faculties"
+            root_id = "root"  # unique id for the root
+            root_total = float(fac_agg["faculty_total_value"].sum())
+
+            ids.append(root_id)
+            labels.append(root_label)
+            parents.append("")  # root has no parent
+            values.append(root_total)
+            colors.append("rgba(0,0,0,0)")  # transparent-ish
+            hovertexts.append(
+                f"<b>{root_label}</b><br>Total score sum: {root_total:.1f}"
+            )
+            text_list.append(root_label)
+
+            # ---- FACULTY NODES + CHILD DIMENSION NODES ----
+            for _, fac_row in fac_agg.iterrows():
+                fac_name = fac_row["faculty_name"]  # e.g. "Biology"
+                fac_short = fac_row["short_name"]  # short label to show
+                fac_color = fac_row["color"] or "#cccccc"
+                fac_total = float(fac_row["faculty_total_value"])
+                fac_overall = float(fac_row["overall_faculty_score"])
+
+                fac_id = f"fac|{fac_short}"  # UNIQUE faculty id
+
+                # Faculty node points to root_id as parent
+                ids.append(fac_id)
+                labels.append(fac_short)
+                parents.append(root_id)
+                values.append(fac_total)
+                colors.append(fac_color)
+                hovertexts.append(
+                    f"<b>{fac_name}</b><br>"
+                    f"Total score sum (4 dims): {fac_total:.1f}<br>"
+                    f"Overall avg score: {fac_overall:.1f}"
+                )
+                # display text inside the faculty rectangle (name only, no score)
+                text_list.append(fac_short)
+
+                # now add each of its 4 dimension boxes as children of this faculty
+                sub_df = tdf[tdf["faculty_name"] == fac_name]
+                for _, dim_row in sub_df.iterrows():
+                    dim_label = dim_row["label"]  # "Knowledge", "Uses", ...
+                    dim_val = float(dim_row["value"])  # that dimension's score
+                    dim_color = dimension_colors.get(dim_label, "#999999")
+
+                    child_id = f"{fac_id}|{dim_label}"  # UNIQUE child id
+
+                    ids.append(child_id)
+                    labels.append(dim_label)
+                    parents.append(fac_id)  # <-- parent is fac_id, not label
+                    values.append(dim_val)
+                    colors.append(dim_color)
+                    hovertexts.append(
+                        f"<b>{fac_name} – {dim_label}</b><br>"
+                        f"Score: {dim_val:.1f}"
+                    )
+                    # text drawn in each dimension box, show label + score
+                    text_list.append(f"{dim_label}\n{dim_val:.1f}")
+
+            # --- build treemap with unique ids ---
+            fig = go.Figure(
+                go.Treemap(
+                    ids=ids,  # <- unique IDs for EVERY node
+                    labels=labels,  # what user sees
+                    parents=parents,  # MUST match parent IDs, NOT labels
+                    values=values,  # area sizes
+                    text=text_list,  # what’s drawn in the rectangles
+                    textinfo="text",
+                    hovertext=hovertexts,
+                    hoverinfo="text",
+                    marker=dict(
+                        colors=colors,
+                        line=dict(width=1, color="black"),
+                    ),
+                    branchvalues="total",  # parent value = sum(children)
+                    maxdepth=3,  # show root -> faculty -> 4 areas
+                    tiling=dict(
+                        pad=2,
+                        packing="squarify",
+                    ),
+                    pathbar=dict(visible=False),
                 )
             )
 
-            # Update hover and traces
-            fig.update_traces(
-                marker=dict(line=dict(width=1, color="black")),
-                hovertemplate="<b>%{label}</b><br>Score: %{value}<extra></extra>",
-            )
-
-            # Change legend title
             fig.update_layout(
-                coloraxis_colorbar=dict(
-                    title="Faculty Score"  # Set the legend title
-                )
+                margin=dict(t=20, l=20, r=20, b=20),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
             )
 
+            # treemap mode: arrows hidden
             disable_left = True
             disable_right = True
             nav_style = {"display": "none"}
 
-        return fig, title, disable_left, disable_right, nav_style
+            return fig, title, disable_left, disable_right, nav_style
 
 
 """
