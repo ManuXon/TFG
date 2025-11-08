@@ -2,13 +2,11 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Plot from "react-plotly.js";
 import { useWindowWidth } from "./useWindowWidthHook";
 
-const UsesFunctionalityChart: React.FC<{
+const UsesStudentsFunctionalityChart: React.FC<{
   facultyName: string;
-  facultyColor: string; // use faculty.color to tint "no data" box
+  facultyColor: string;
 }> = ({ facultyName, facultyColor }) => {
-  const [chartType, setChartType] = useState<"bar" | "heatmap" | "radar">(
-    "radar"
-  );
+  const [chartType, setChartType] = useState<"bar" | "heatmap" | "radar">("radar");
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [noData, setNoData] = useState<boolean>(false);
@@ -28,21 +26,21 @@ const UsesFunctionalityChart: React.FC<{
   const radarLegendSize = lt740 ? 12 : 14;
   const radarTickFontSize = lt740 ? 10 : 13;
 
-  // helper to tint "no data"
+  // inside UsesStudentsFunctionalityChart component (near other consts)
+  const legendTitleText =
+    chartType === "radar" ? "Proposal level"
+    : chartType === "bar" ? "Student task"
+    : ""; // heatmap uses the colorbar title already
+
+  // tint for "no data"
   const rgba = (input: string, a = 1) => {
     const s = input.trim();
     if (/^rgba?\(/i.test(s)) {
-      const [r, g, b] = s
-        .replace(/[^\d.,]/g, "")
-        .split(",")
-        .slice(0, 3)
-        .map(Number);
+      const [r, g, b] = s.replace(/[^\d.,]/g, "").split(",").slice(0, 3).map(Number);
       return `rgba(${r},${g},${b},${a})`;
     }
     if (s[0] === "#") {
-      let r = 0,
-        g = 0,
-        b = 0;
+      let r = 0, g = 0, b = 0;
       if (s.length === 4) {
         r = parseInt(s[1] + s[1], 16);
         g = parseInt(s[2] + s[2], 16);
@@ -72,7 +70,7 @@ const UsesFunctionalityChart: React.FC<{
     fetch(
       `http://localhost:8000/api/faculty/${encodeURIComponent(
         facultyName
-      )}/uses-functionality-correlation?${params.toString()}`,
+      )}/students-uses-by-proposal?${params.toString()}`,
       { cache: "no-store" }
     )
       .then((res) => res.json())
@@ -92,13 +90,11 @@ const UsesFunctionalityChart: React.FC<{
     fetchData();
   }, [fetchData]);
 
-  // STABLE task axis labels
+  // 11 student task labels (axis)
   const funcLabels = useMemo(
     () => [
       "Text Creation",
       "Multimedia Creation",
-      "Class Planning",
-      "Material Design",
       "Activity Design",
       "Evaluation",
       "Research Management",
@@ -112,13 +108,13 @@ const UsesFunctionalityChart: React.FC<{
     []
   );
 
-  // STABLE canonical usage ordering
-  const canonicalUsageOrder = useMemo(
-    () => ["No use", "Low use", "Moderate use", "Advanced use"],
+  // canonical proposal order
+  const canonicalProposalOrder = useMemo(
+    () => ["Never", "Sometimes", "Often", "Very often"],
     []
   );
 
-  // 1. Drop any usage row that's all zeros (ghost rows)
+  // 1) drop ghost rows (all zeros)
   const filteredData = useMemo(() => {
     return data.filter((row) => {
       const vals = funcLabels.map((task) => row[task]);
@@ -130,58 +126,45 @@ const UsesFunctionalityChart: React.FC<{
     });
   }, [data, funcLabels]);
 
-  // 2. usage_label → row object, for quick lookup
+  // 2) index by proposal_label
   const rowByLabel: Record<string, any> = useMemo(() => {
     const out: Record<string, any> = {};
     filteredData.forEach((r) => {
-      out[r.usage_label] = r;
+      out[r.proposal_label] = r;
     });
     return out;
   }, [filteredData]);
 
-  // keep canonical order, but only labels we actually still have
-  const orderedUsageLabels = useMemo(
-    () => canonicalUsageOrder.filter((lbl) => rowByLabel[lbl]),
-    [canonicalUsageOrder, rowByLabel]
+  // 3) keep canonical order but only those present
+  const orderedProposalLabels = useMemo(
+    () => canonicalProposalOrder.filter((lbl) => rowByLabel[lbl]),
+    [canonicalProposalOrder, rowByLabel]
   );
-  // draw smallest last so hover works (small polygons on top)
+
+  // Smallest last so tiny polygons are on top
   const radarOrder = useMemo(
-    () => [...orderedUsageLabels].reverse(),
-    [orderedUsageLabels]
+    () => [...orderedProposalLabels].reverse(),
+    [orderedProposalLabels]
   );
 
-
-  // 3. Build matrix aligned with orderedUsageLabels
+  // 4) matrix aligned to ordered labels
   const matrix = useMemo(() => {
-    return orderedUsageLabels.map((lbl) => {
+    return orderedProposalLabels.map((lbl) => {
       const row = rowByLabel[lbl];
       return funcLabels.map((task) => row[task]);
     });
-  }, [orderedUsageLabels, rowByLabel, funcLabels]);
+  }, [orderedProposalLabels, rowByLabel, funcLabels]);
 
-  // purples for grouped bar
-  const colorPalette = [
-    "#4c1d95",
-    "#5b21b6",
-    "#6b21a8",
-    "#7e22ce",
-    "#9333ea",
-    "#a855f7",
-    "#c084fc",
-    "#e9d5ff",
+  // purples (same family as Uses)
+  const barColors = [
+    "#4c1d95", "#5b21b6", "#6b21a8", "#7e22ce",
+    "#9333ea", "#a855f7", "#c084fc", "#e9d5ff",
   ];
-
-  // trimmed purple colorscale for heatmap (avoid ultra-white low end)
   const purplesScale: [number, string][] = [
-    [0.0, "#e9d5ff"],
-    [0.25, "#9333ea"],
-    [0.5, "#6b21a8"],
-    [0.75, "#5b21b6"],
-    [1.0, "#4c1d95"],
+    [0.0, "#e9d5ff"], [0.25, "#9333ea"], [0.5, "#6b21a8"], [0.75, "#5b21b6"], [1.0, "#4c1d95"],
   ];
 
-  // after filtering AND ordering, do we still have anything?
-  const hasPlottable = orderedUsageLabels.length > 0;
+  const hasPlottable = orderedProposalLabels.length > 0;
 
   return (
     <div>
@@ -234,24 +217,12 @@ const UsesFunctionalityChart: React.FC<{
         </select>
       </div>
 
-      {/* Chart wrapper */}
       <div className="relative w-full h-[600px] rounded-xl border border-slate-200 bg-white overflow-hidden">
-        {loading && (
-          <div className="absolute inset-0 bg-slate-100 animate-pulse" />
-        )}
+        {loading && <div className="absolute inset-0 bg-slate-100 animate-pulse" />}
 
         {!loading && (!hasPlottable || noData) && (
-          <div
-            className="absolute inset-0 flex items-center justify-center"
-            style={{ background: tintBg, border: tintBorder }}
-          >
-            <p
-              style={{
-                color: tintText,
-                fontWeight: 600,
-                letterSpacing: ".2px",
-              }}
-            >
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: tintBg, border: tintBorder }}>
+            <p style={{ color: tintText, fontWeight: 600, letterSpacing: ".2px" }}>
               No data for the selected filters.
             </p>
           </div>
@@ -262,35 +233,21 @@ const UsesFunctionalityChart: React.FC<{
             {chartType === "bar" && (
               <Plot
                 data={funcLabels.map((taskLabel, i) => ({
-                  x: orderedUsageLabels,
-                  y: orderedUsageLabels.map(
-                    (lbl) => rowByLabel[lbl][taskLabel]
-                  ),
+                  x: orderedProposalLabels,
+                  y: orderedProposalLabels.map((lbl) => rowByLabel[lbl][taskLabel]),
                   name: taskLabel,
                   type: "bar",
-                  orientation: "v",
-                  marker: {
-                    color: colorPalette[i % colorPalette.length],
-                  },
+                  marker: { color: barColors[i % barColors.length] },
                   hovertemplate:
-                    `<b>AI Usage Level:</b> %{x}<br><b>${taskLabel}:</b> %{y:.2f}<extra></extra>`,
+                    `<b>Proposal Frequency:</b> %{x}<br><b>${taskLabel}:</b> %{y:.2f}<extra></extra>`,
                 }))}
                 layout={{
                   barmode: "group",
-                  title: {
-                    text: "How often is AI used across tasks?",
-                    y: 0.96,
-                    font: { size: barTitleSize },
-                  },
-                  xaxis: {
-                    tickfont: { size: radarTickFontSize },
-                  },
-                  yaxis: {
-                    title: { text: "Avg Usage Frequency (1–4)" },
-                    range: [0, 4],
-                    automargin: true,
-                  },
+                  title: { text: "Where do you propose AI use to students?", y: 0.96, font: { size: barTitleSize } },
+                  xaxis: { tickfont: { size: radarTickFontSize } },
+                  yaxis: { title: { text: "Avg Frequency (1–4)" }, range: [0, 4], automargin: true },
                   legend: {
+                    title: { font: { size: barLegendSize, color: "#334155" } },
                     orientation: "h",
                     y: -0.2,
                     x: 0.071,
@@ -298,6 +255,7 @@ const UsesFunctionalityChart: React.FC<{
                     bordercolor: "#e2e8f0",
                     borderwidth: 1,
                   },
+
                   margin: { t: 80, l: 60, r: 30, b: 80 },
                   paper_bgcolor: "rgba(0,0,0,0)",
                   plot_bgcolor: "rgba(0,0,0,0)",
@@ -313,30 +271,18 @@ const UsesFunctionalityChart: React.FC<{
                   {
                     z: matrix,
                     x: funcLabels,
-                    y: orderedUsageLabels,
+                    y: orderedProposalLabels,
                     type: "heatmap",
                     colorscale: purplesScale,
-                    colorbar: {
-                      title: { text: "Usage", font: { color: "#6b21a8" } },
-                      tickfont: { color: "#6b21a8" },
-                      outlinecolor: "#6b21a8",
-                      outlinewidth: 1,
-                    },
+                    colorbar: { title: { text: "Avg Frequency" } },
                     hovertemplate:
-                      `<b>AI Usage Level:</b> %{y}<br><b>Task:</b> %{x}` +
+                      `<b>Proposal Frequency:</b> %{y}<br><b>Task:</b> %{x}` +
                       `<br><b>Avg Frequency:</b> %{z:.2f}<extra></extra>`,
                   },
                 ]}
                 layout={{
-                  title: {
-                    text: "How often is AI used across tasks?",
-                    y: 0.96,
-                    font: { size: barTitleSize },
-                  },
-                  yaxis: {
-                    autorange: "reversed",
-                    tickfont: { size: radarTickFontSize },
-                  },
+                  title: { text: "Where do you propose AI use to students?", y: 0.96, font: { size: barTitleSize } },
+                  yaxis: { autorange: "reversed", tickfont: { size: radarTickFontSize } },
                   xaxis: { tickfont: { size: 11 } },
                   margin: { t: 110, l: 110, r: 0, b: 110 },
                   paper_bgcolor: "rgba(0,0,0,0)",
@@ -349,89 +295,75 @@ const UsesFunctionalityChart: React.FC<{
             )}
 
             {chartType === "radar" && (
-            <Plot
-              data={radarOrder.map((lbl) => {
-                // consistent purples for usage tiers
-                const radarColors: Record<string, string> = {
-                  "No use": "#4c1d95",
-                  "Low use": "#6b21a8",
-                  "Moderate use": "#9333ea",
-                  "Advanced use": "#c084fc",
-                };
-                const color = radarColors[lbl] || "#6b21a8";
+              <Plot
+                data={radarOrder.map((lbl) => {
+                  const radarColors: Record<string, string> = {
+                    "Never": "#4c1d95",
+                    "Sometimes": "#6b21a8",
+                    "Often": "#9333ea",
+                    "Very often": "#c084fc",
+                  };
+                  const color = radarColors[lbl] || "#6b21a8";
+                  const row = rowByLabel[lbl];
+                  const rVals = funcLabels.map((task) => row[task]);
 
-                const row = rowByLabel[lbl];
-                const rVals = funcLabels.map((task) => row[task]);
-
-                return {
-                  type: "scatterpolar" as const,
-                  r: rVals.concat(rVals[0]),
-                  theta: funcLabels.concat(funcLabels[0]),
-                  fill: "toself",
-                  name: lbl,
-                  line: { color, width: 3 },
-                  fillcolor: color + "40",
-                  hovertemplate:
-                    `<b>%{theta}</b><br>Usage Level: <b>${lbl}</b>` +
-                    `<br>Avg Frequency: %{r:.2f}<extra></extra>`,
-                };
-              })}
-              layout={{
-                title: {
-                  text: "How often is AI used across tasks?",
-                  font: { size: barTitleSize, color: "#334155" },
-                  y: 0.96,
-                },
-                polar: {
-                  bgcolor: "rgba(0,0,0,0)",
-                  radialaxis: {
-                    visible: false,
-                    showline: false,
-                    range: [0, 4],
-                    gridcolor: "#f1f5f9",
-                    gridwidth: 1.3,
-                    tickfont: { color: "#475569", size: 11 },
-                    tickangle: 0,
-                    ticksuffix: " ",
-                  },
-                  angularaxis: {
-                    gridcolor: "#e2e8f0",
-                    linecolor: "#cbd5e1",
-                    showline: true,
-                    linewidth: 1.5,
-                    tickfont: {
-                      color: "#334155",
-                      size: radarTickFontSize,
+                  return {
+                    type: "scatterpolar" as const,
+                    r: rVals.concat(rVals[0]),
+                    theta: funcLabels.concat(funcLabels[0]),
+                    fill: "toself",
+                    name: lbl,
+                    line: { color, width: 3 },
+                    fillcolor: color + "40",
+                    hovertemplate:
+                      `<b>%{theta}</b><br>Proposal Level: <b>${lbl}</b>` +
+                      `<br>Avg Frequency: %{r:.2f}<extra></extra>`,
+                  };
+                })}
+                layout={{
+                  title: { text: "Where do you propose AI use to students?", font: { size: barTitleSize, color: "#334155" }, y: 0.96 },
+                  polar: {
+                    bgcolor: "rgba(0,0,0,0)",
+                    radialaxis: {
+                      visible: false,
+                      showline: false,
+                      range: [0, 4],
+                      gridcolor: "#f1f5f9",
+                      gridwidth: 1.3,
+                      tickfont: { color: "#475569", size: 11 },
                     },
-                    ticklen: 8,
-                    ticks: "",
-                    direction: "clockwise",
-                    rotation: 90,
+                    angularaxis: {
+                      gridcolor: "#e2e8f0",
+                      linecolor: "#cbd5e1",
+                      showline: true,
+                      linewidth: 1.5,
+                      tickfont: { color: "#334155", size: radarTickFontSize },
+                      ticklen: 8,
+                      ticks: "",
+                      direction: "clockwise",
+                      rotation: 90,
+                    },
                   },
-                },
-                showlegend: true,
-                legend: {
-                  title: {
-                    text: "AI usage level",
+                  showlegend: true,
+                  legend: {
+                    title: { text: legendTitleText, font: { size: radarLegendSize, color: "#334155"} },
+                    orientation: "v",
+                    y: 1,
+                    x: -0.04,
+                    xanchor: "left",
                     font: { color: "#334155", size: radarLegendSize },
+                    bordercolor: "#e2e8f0",
+                    borderwidth: 1,
                   },
-                  orientation: "v",
-                  y: 1,
-                  x: -0.04,
-                  xanchor: "left",
-                  font: { color: "#334155", size: radarLegendSize },
-                  bordercolor: "#e2e8f0",
-                  borderwidth: 1,
-                },
-                margin: { t: 90, l: 80, r: 40, b: 40 },
-                paper_bgcolor: "rgba(0,0,0,0)",
-                plot_bgcolor: "rgba(0,0,0,0)",
-              }}
-              style={{ width: "100%", height: "100%" }}
-              config={{ displayModeBar: false }}
-            />
-          )}
 
+                  margin: { t: 90, l: 80, r: 40, b: 40 },
+                  paper_bgcolor: "rgba(0,0,0,0)",
+                  plot_bgcolor: "rgba(0,0,0,0)",
+                }}
+                style={{ width: "100%", height: "100%" }}
+                config={{ displayModeBar: false }}
+              />
+            )}
           </>
         )}
       </div>
@@ -439,4 +371,4 @@ const UsesFunctionalityChart: React.FC<{
   );
 };
 
-export default UsesFunctionalityChart;
+export default UsesStudentsFunctionalityChart;

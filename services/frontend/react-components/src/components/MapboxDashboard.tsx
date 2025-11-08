@@ -563,6 +563,24 @@ const MapboxDashboard: React.FC = () => {
     maxResponsesRef.current = maxR;
   }, [facultyData]);
 
+  // All faculties currently loadable/selectable (finite score), alphabetically
+  const allSelectable = useMemo(
+    () =>
+      facultyData
+        .filter((f) => Number.isFinite(f?.category_score))
+        .map((f) => f.faculty_name)
+        .sort((a, b) => a.localeCompare(b)),
+    [facultyData]
+  );
+
+  const handleSelectAll = useCallback(() => {
+    setSelectedFaculties(allSelectable); // replace with full set
+  }, [allSelectable]);
+
+  const handleClearAll = useCallback(() => {
+    setSelectedFaculties([]); // empty selection
+  }, []);
+
   // Shorten display name for the chart list (only)
   const shortenFacultyLabel = useCallback((n: string) => {
     return n === "Economics and Business" ? "Economics" : n;
@@ -1299,8 +1317,36 @@ const MapboxDashboard: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6" style={{overflowX: 'auto'}}>
-              <h2 className="text-lg font-medium text-slate-800 mb-1" style={{minWidth:'175px'}}>Selected faculties</h2>
-              <p className="text-sm text-slate-500 mb-4">{visibleSelected.length} selected</p>
+            <div className="flex items-center justify-between mb-1" style={{ minWidth: '175px' }}>
+              <h2 className="text-lg font-medium text-slate-800">Selected faculties</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSelectAll}
+                  disabled={allSelectable.length === 0 || selectedFaculties.length === allSelectable.length}
+                  className={`text-xs px-2 py-1 rounded-md border transition
+                    ${allSelectable.length === 0 || selectedFaculties.length === allSelectable.length
+                      ? 'opacity-50 cursor-not-allowed border-slate-200 text-slate-400 bg-slate-50'
+                      : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                  title="Select all faculties"
+                >
+                  Select all
+                </button>
+                <button
+                  onClick={handleClearAll}
+                  disabled={selectedFaculties.length === 0}
+                  className={`text-xs px-2 py-1 rounded-md border transition
+                    ${selectedFaculties.length === 0
+                      ? 'opacity-50 cursor-not-allowed border-slate-200 text-slate-400 bg-slate-50'
+                      : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                  title="Clear selection"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+            <p className="text-sm text-slate-500 mb-4">
+              {visibleSelected.length} selected {allSelectable.length ? `· ${allSelectable.length} available` : ''}
+            </p>
 
               <div
                 className="space-y-3 max-h-[500px] overflow-y-auto"

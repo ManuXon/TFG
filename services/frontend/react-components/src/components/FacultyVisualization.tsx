@@ -10,6 +10,24 @@ import UsesBarChart from "./UsesBarChart";
 import ProposesPieChart from "./ProposesPieChart";
 import UsesApplicationsWordCloud from "./UsesApplicationsWordCloud";
 import KnowledgeApplicationsWordCloud from "./KnowledgeApplicationsWordCloud";
+import UsesStudentsFunctionalityChart from "./UsesStudentsFunctionalityChart";
+import UsesStudentsAdequacyPieChart from "./UsesStudentsAdequacyPieChart";
+import StudentsDocChangeByAdequacyBar from "./StudentsDocChangeByAdequacyBar";
+import PerceptionsPrioritiesSpider from "./PerceptionsPrioritiesSpider";
+import ToolsWordCloud from "./ToolsWordCloud";
+import PerceptionsStudentsUsesBar from "./PerceptionsStudentsUsesBar";
+import PerceptionsStudentsAttitudesBar from "./PerceptionsStudentsAttitudesBar";
+import PerceptionsTasksSupportPie from "./PerceptionsTasksSupportPie";
+import PerceptionsProfAttitudeSpider from "./PerceptionsProfAttitudeSpider";
+import PerceptionsOpportunitiesRisksBar from "./PerceptionsOpportunitiesRisksBar";
+import TrainingReceivedSpider from "./TrainingReceivedSpider";
+import TrainingInterestPie from "./TrainingInterestPie";
+import TrainingNeedsBar from "./TrainingNeedsBar";
+
+
+
+
+
 import Plot from 'react-plotly.js';
 
 /* -------------------------------------------------
@@ -894,6 +912,10 @@ const KnowledgeFunctionalityChart: React.FC<{
                   },
                   showlegend: true,
                   legend: {
+                    title: {
+                      text: "AI Knowledge level",
+                      font: { color: "#334155", size: radarLegendSize },
+                    },
                     orientation: "v",
                     y: 1,
                     x: -0.04,
@@ -1151,6 +1173,13 @@ const FacultyVisualization: React.FC<{
                                 facultyColor={faculty.color}
                               />
                             </div>
+                            {/* Wordcloud hidden on <768px */}
+                            <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
+                              <UsesApplicationsWordCloud
+                                facultyName={faculty.name}
+                                facultyColor={faculty.color}
+                              />
+                            </div>
 
                             <div className="flex flex-col lg:flex-row gap-6">
                               <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
@@ -1161,40 +1190,85 @@ const FacultyVisualization: React.FC<{
                                 <ProposesPieChart facultyName={faculty.name} />
                               </div>
                             </div>
+                            {/* Students uses by proposal (same logic as UsesFunctionalityChart) */}
+                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                            <UsesStudentsFunctionalityChart
+                              facultyName={faculty.name}
+                              facultyColor={faculty.color}
+                            />
                           </div>
+                            <div className="mt-6 flex flex-col lg:flex-row gap-6">
+                              <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                <UsesStudentsAdequacyPieChart facultyName={faculty.name} />
+                              </div>
 
-                          {/* Wordcloud hidden on <768px */}
+                              <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                <StudentsDocChangeByAdequacyBar facultyName={faculty.name} />
+                              </div>
+                            </div>
+                          </div>
                           <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
-                            <UsesApplicationsWordCloud
+                            <ToolsWordCloud
                               facultyName={faculty.name}
                               facultyColor={faculty.color}
                             />
                           </div>
                         </>
-                      ) : (
-                        <div className="text-center py-16">
-                          <div
-                            className="inline-flex p-4 rounded-full mb-4"
-                            style={{
-                              backgroundColor: `${area.color}15`,
-                            }}
-                          >
-                            <div style={{ color: area.color }}>
-                              {area.icon}
+                      ) : area.name === 'Perceptions' ? (
+                        <div className="flex flex-col gap-6">
+                          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                            <PerceptionsPrioritiesSpider
+                              facultyName={faculty.name}
+                              facultyColor={"#15803d"}   // Perceptions green
+                            />
+                          </div>
+                          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                            <PerceptionsStudentsUsesBar
+                              facultyName={faculty.name}
+                              facultyColor={"#15803d"}
+                            />
+                          </div>
+                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                            <PerceptionsStudentsAttitudesBar
+                              facultyName={faculty.name}
+                              facultyColor="#15803d"
+                            />
+                          </div>
+                          <div className="mt-6 flex flex-col lg:flex-row gap-6">
+                            <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <PerceptionsTasksSupportPie facultyName={faculty.name} facultyColor="#15803d" />
+                            </div>
+
+                            <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <PerceptionsProfAttitudeSpider facultyName={faculty.name} facultyColor="#15803d" />
                             </div>
                           </div>
-                          <h3 className="text-xl font-medium text-slate-700 mb-2">
-                            {area.name} Visualizations
-                          </h3>
-                          <p className="text-slate-500">
-                            Your {area.name.toLowerCase()} charts and graphs will be displayed here
-                          </p>
-                          <p className="text-slate-400 text-sm mt-2">
-                            This container can hold multiple visualizations and will expand as needed
-                          </p>
+                          {/* NEW: Opportunities & Risks stacked bar */}
+                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                            <PerceptionsOpportunitiesRisksBar
+                              facultyName={faculty.name}
+                              facultyColor="#15803d"
+                            />
+                          </div>
                         </div>
-                      )}
+                      ) : area.name === 'Training' ? (
+                        <div className="flex flex-col gap-6">
+                          {/* A: Training received (spider) */}
+                          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                            <TrainingReceivedSpider facultyName={faculty.name} facultyColor="#b45309" />
+                          </div>
 
+                          {/* B: Interest pie (40%) + Needs stacked bar (60%) */}
+                          <div className="mt-6 flex flex-col lg:flex-row gap-6">
+                            <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200 min-h-[520px]">
+                              <TrainingInterestPie facultyName={faculty.name} facultyColor="#b45309" />
+                            </div>
+                            <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200 min-h-[520px]">
+                              <TrainingNeedsBar facultyName={faculty.name} facultyColor="#b45309" />
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
                       </div>
                     </div>
                   </div>

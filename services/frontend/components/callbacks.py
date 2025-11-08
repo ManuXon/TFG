@@ -1,5 +1,5 @@
-from dash import dcc, html
-from dash.dependencies import Input, Output, State
+from dash import dcc, html, clientside_callback
+from dash.dependencies import Input, Output, State, ClientsideFunction
 import dash
 import plotly.express as px
 import plotly.graph_objects as go
@@ -612,7 +612,6 @@ def register_callbacks(app):
             nav_style = {"display": "none"}
 
             return fig, title, disable_left, disable_right, nav_style
-
 
 """
     # Update 3D scatter map based on latest IA usage percentages
