@@ -227,7 +227,7 @@ const MapboxDashboard: React.FC = () => {
     const participantsPct =
       maxResponses > 0 ? (n_responses / maxResponses) * 100 : 0;
 
-    // the bars we draw (short labels)
+    // bars(short labels)
     const bars = [
       {
         key: "Resp",

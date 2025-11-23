@@ -11,11 +11,6 @@ from components.layout import layout  # Import the layout from layout.py
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, "custom.css"], suppress_callback_exceptions=True)
 
 
-# Add this tiny utility once:
-def raw_html(html_string: str):
-    return html.Div(dangerouslySetInnerHTML={'__html': html_string})
-
-
 # Header
 header = html.Header(
     className='d-flex align-items-center justify-content-between py-3 px-4',

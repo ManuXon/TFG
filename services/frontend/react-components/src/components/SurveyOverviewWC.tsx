@@ -1,8 +1,12 @@
 // assets/react/components/SurveyOverviewWC.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import { X, Users, Building2, Calendar, User, Briefcase, Monitor, BarChart3 } from "lucide-react";
+import { X, Users, Building2, Calendar, User, Briefcase, Monitor, BarChart3, School } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Plot from "react-plotly.js";
+
+const CHART_HEIGHT = 320;      // was 360
+const CARD_MIN_HEIGHT = 340;   // was 380
+
 
 type DemographicCategory = "age" | "gender" | "profile" | "experience" | "mode";
 
@@ -21,42 +25,69 @@ const BUTTONS: Array<{
   { id: "mode",       label: "Teaching Mode",       color: "#ec4899", icon: <Monitor className="w-5 h-5" /> },
 ];
 
-const useSummary = () => {
-  const [summary, setSummary] = useState<{ total_responses: number; total_faculties: number } | null>(null);
+type SummaryResp = { total_responses: number; total_faculties: number };
+type DistResp = { categories: string[]; counts: number[] };
+type FacultiesResp = { faculties: { faculty_name: string; responses: number }[]; total: number };
+
+const useFaculties = () => {
+  const [data, setData] = useState<{ name: string; responses: number }[]>([]);
   useEffect(() => {
-    fetch(`${API_BASE}/api/survey/summary`, { cache: "no-store" })
+    fetch(`${API_BASE}/api/survey/faculties?min_count=1`, { cache: "no-store" })
       .then(r => r.json())
-      .then((d) =>
-       setSummary({
-         total_responses: Number(d?.total_responses ?? 0),
+      .then((d: FacultiesResp) => {
+        const rows = (d?.faculties ?? []).map(f => ({ name: f.faculty_name, responses: Number(f.responses || 0) }));
+        setData(rows);
+      })
+      .catch(() => setData([]));
+  }, []);
+  return data;
+};
+
+const useSummary = (faculty: string | "All") => {
+  const [summary, setSummary] = useState<SummaryResp>({ total_responses: 0, total_faculties: 0 });
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (faculty && faculty !== "All") params.set("faculty", faculty);
+    fetch(`${API_BASE}/api/survey/summary${params.toString() ? `?${params.toString()}` : ""}`, { cache: "no-store" })
+      .then(r => r.json())
+      .then((d: SummaryResp) =>
+        setSummary({
+          total_responses: Number(d?.total_responses ?? 0),
           total_faculties: Number(d?.total_faculties ?? 0),
         })
       )
       .catch(() => setSummary({ total_responses: 0, total_faculties: 0 }));
-  }, []);
-  return summary ?? { total_responses: 0, total_faculties: 0 };
+  }, [faculty]);
+  return summary;
 };
 
-const useDistribution = (category: DemographicCategory | null) => {
-  const [dist, setDist] = useState<{ categories: string[]; counts: number[] } | null>(null);
+const useDistribution = (category: DemographicCategory | null, faculty: string | "All") => {
+  const [dist, setDist] = useState<DistResp>({ categories: [], counts: [] });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!category) { setDist(null); return; }
+    if (!category) { setDist({ categories: [], counts: [] }); return; }
     setLoading(true);
-    fetch(`${API_BASE}/api/survey/distribution?category=${category}`, { cache: "no-store" })
+    const params = new URLSearchParams({ category });
+    if (faculty && faculty !== "All") params.set("faculty", faculty);
+
+    fetch(`${API_BASE}/api/survey/distribution?${params.toString()}`, { cache: "no-store" })
       .then(r => r.json())
-      .then(setDist)
+      .then((d: DistResp) => setDist({ categories: d?.categories ?? [], counts: d?.counts ?? [] }))
       .catch(() => setDist({ categories: [], counts: [] }))
       .finally(() => setLoading(false));
-  }, [category]);
+  }, [category, faculty]);
 
-  return { dist: dist ?? { categories: [], counts: [] }, loading };
+  return { dist, loading };
 };
 
 const SurveyOverviewWC: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<DemographicCategory | null>(null);
+
+  // Faculty filter state
+  const faculties = useFaculties();
+  const [faculty, setFaculty] = useState<string | "All">("All");
 
   // open/close via global events from Dash
   useEffect(() => {
@@ -70,16 +101,19 @@ const SurveyOverviewWC: React.FC = () => {
     };
   }, []);
 
-  const { total_responses = 0, total_faculties = 0 } = useSummary();
+  const { total_responses, total_faculties } = useSummary(faculty);
   const nf = React.useMemo(() => new Intl.NumberFormat(), []);
-  const { dist, loading } = useDistribution(selected);
+  const { dist, loading } = useDistribution(selected, faculty);
 
-  const selectedButton = useMemo(
-    () => BUTTONS.find(b => b.id === selected),
-    [selected]
-  );
-
+  const selectedButton = useMemo(() => BUTTONS.find(b => b.id === selected), [selected]);
   const sectionColor = selectedButton?.color ?? "#64748b"; // fallback slate
+
+  const facultyOptions = useMemo(() => {
+    const items = faculties.slice().sort((a, b) => a.name.localeCompare(b.name));
+    return items;
+  }, [faculties]);
+
+  const facultyLabel = faculty === "All" ? "All Faculties" : faculty;
 
   return (
     <AnimatePresence>
@@ -115,35 +149,70 @@ const SurveyOverviewWC: React.FC = () => {
                   <X className="w-5 h-5" />
                 </button>
 
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="p-3 rounded-xl bg-blue-500/20 text-blue-400">
-                    <BarChart3 className="w-6 h-6" />
+                {/* TOP ROW: Left = title; Right = faculty dropdown */}
+                <div className="flex items-start justify-between gap-4 mb-2" style={{alignItems: 'center', marginRight: '37px'}}>
+                  {/* Left: Icon + Title + Subtitle */}
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-blue-500/20 text-blue-300">
+                      <BarChart3 className="w-8 h-8" /> {/* bigger icon */}
+                    </div>
+                    <div>
+                      <h2 className="text-[34px] leading-tight font-light text-white">
+                        Survey Overview
+                      </h2>
+                      <p className="text-slate-300 text-sm mt-1">General demographic metrics</p>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-3xl font-light text-white">Survey Overview</h2>
-                    <p className="text-slate-400 text-sm mt-1">General demographic metrics</p>
+
+                  {/* Right: Faculty selector */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 text-white">
+                      <School className="w-6 h-6 opacity-90" /> {/* bigger icon */}
+                      <span className="text-base font-medium">Faculty</span> {/* bigger label */}
+                    </div>
+                    <label htmlFor="faculty-select" className="sr-only">Faculty</label>
+                    <select
+                      id="faculty-select"
+                      value={faculty}
+                      onChange={(e) => setFaculty(e.target.value as any)}
+                      className={
+                        "faculty-select px-3 py-2 rounded-lg text-sm shadow-sm " +
+                        "bg-gradient-to-br from-slate-800 to-slate-900 text-white " + // same as header
+                        "border border-white/30 " +
+                        "focus:outline-none focus:ring-2 focus:ring-blue-300/60"
+                      }
+                    >
+                      <option value="All">All Faculties</option>
+                      {facultyOptions.map((f) => (
+                        <option key={f.name} value={f.name}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  {/* LEFT KPI: Selected faculty + responses */}
                   <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="p-2 rounded-lg bg-blue-500/20">
                         <Users className="w-5 h-5 text-blue-400" />
                       </div>
                       <p className="text-slate-300 text-sm font-medium uppercase tracking-wide">
-                        Total Responses
+                        {facultyLabel}
                       </p>
                     </div>
                     <div className="flex items-baseline gap-2">
                       <span className="text-5xl font-bold text-white">
-                      {nf.format(Number(total_responses) || 0)}
+                        {nf.format(Number(total_responses) || 0)}
                       </span>
                       <span className="text-slate-400 text-lg">responses</span>
                     </div>
                   </div>
 
+                  {/* RIGHT KPI: Total faculties (global) */}
                   <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="p-2 rounded-lg bg-purple-500/20">
@@ -162,7 +231,7 @@ const SurveyOverviewWC: React.FC = () => {
               </div>
 
               {/* Content */}
-              <div className="p-8 overflow-y-auto max-h-[calc(90vh-280px)]">
+              <div className="p-8 overflow-y-auto max-h-[calc(90vh-320px)]">
                 {/* Buttons */}
                 <div className="mb-8">
                   <h3 className="text-lg font-medium text-slate-700 mb-4">Demographic Breakdown</h3>
@@ -201,19 +270,23 @@ const SurveyOverviewWC: React.FC = () => {
                 <AnimatePresence mode="wait">
                   {selected ? (
                     <motion.div
-                      key={selected}
+                      key={`${selected}-${faculty}`}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
                       transition={{ duration: 0.2 }}
-                      className="rounded-2xl border-2 border-dashed p-6 min-h-[380px]"
+                      className="rounded-2xl border-2 border-dashed p-6"
                       style={{
+                        minHeight: CARD_MIN_HEIGHT,
                         borderColor: (selectedButton?.color ?? "#94a3b8") + "40",
                         background: (selectedButton?.color ?? "#94a3b8") + "0A",
                       }}
                     >
                       {loading ? (
-                        <div className="w-full h-[320px] bg-slate-100 animate-pulse rounded-xl" />
+                        <div
+                          className="w-full bg-slate-100 animate-pulse rounded-xl"
+                          style={{ height: CHART_HEIGHT }}
+                        />
                       ) : dist.categories.length === 0 ? (
                         <div className="text-center py-16 text-slate-500">No data.</div>
                       ) : (
@@ -222,24 +295,24 @@ const SurveyOverviewWC: React.FC = () => {
                             {
                               x: dist.categories,
                               y: dist.counts,
-                              type: "bar",
+                              type: "bar" as const,
                               hovertemplate: "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-                             marker: {
-                              color: sectionColor,       // <-- use demographic section color
-                              opacity: 0.95,
-                              line: { width: 1, color: "rgba(0,0,0,0.25)" } // optional, subtle outline
-                            },
+                              marker: {
+                                color: sectionColor,
+                                opacity: 0.95,
+                                line: { width: 1, color: "rgba(0,0,0,0.25)" },
+                              },
                             },
                           ]}
                           layout={{
-                            title: { text: "", y: 0.98 }, // no inner title; card already has one
+                            title: { text: "", y: 0.98 },
                             margin: { t: 10, l: 60, r: 20, b: 80 },
                             yaxis: { title: "Responses", rangemode: "tozero" },
                             xaxis: { tickangle: 0, automargin: true },
                             paper_bgcolor: "rgba(0,0,0,0)",
                             plot_bgcolor: "rgba(0,0,0,0)",
                           }}
-                          style={{ width: "100%", height: 360 }}
+                          style={{ width: "100%", height: CHART_HEIGHT }}
                           config={{ displayModeBar: false }}
                         />
                       )}
@@ -249,7 +322,8 @@ const SurveyOverviewWC: React.FC = () => {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="rounded-2xl bg-slate-50 border-2 border-slate-200 p-8 min-h-[380px] flex items-center justify-center"
+                      className="rounded-2xl bg-slate-50 border-2 border-slate-200 p-8 flex items-center justify-center"
+                      style={{ minHeight: CARD_MIN_HEIGHT }}
                     >
                       <div className="text-center">
                         <div className="inline-flex p-4 rounded-full bg-slate-200 mb-4">

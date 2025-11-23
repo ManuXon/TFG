@@ -615,7 +615,6 @@ layout = html.Div(
                         },
                     ),
 
-                    # ✅ THIS IS THE FIX:
                     # below 1240px: this col takes full width
                     # >= xl breakpoint: this col becomes 8/12
                     width=12,
@@ -737,7 +736,7 @@ layout = html.Div(
             style={
                 # helps scrollIntoView land cleanly below sticky headers
                 "scrollMarginTop": "100px",
-                # optional: a tiny top margin so it's visually separate
+                # optional: a tiny top margin, so it's visually separate
                 "marginTop": "40px",
             },
         )

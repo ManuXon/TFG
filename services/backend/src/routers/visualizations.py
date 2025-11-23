@@ -134,35 +134,68 @@ def _age_counts(df: pd.DataFrame) -> Dict[str, Any]:
     return {"categories": cats, "counts": cnts}
 
 
+def _df_by_faculty(df: pd.DataFrame, faculty: Optional[str]) -> pd.DataFrame:
+    if not faculty:
+        return df
+    fac_key = str(faculty).strip().lower()
+    return df[df["faculty_name"].astype(str).str.strip().str.lower() == fac_key]
+
+
 # --- Routes ---------------------------------------------------------------
 
 @router.get("/survey/summary")
-def survey_summary() -> Dict[str, Any]:
-    total_responses = int(len(SURVEYS_DF))
-    # Prefer faculties catalog if present; else use unique in responses
+def survey_summary(
+    faculty: Optional[str] = Query(None, description="Optional faculty name (short EN) to filter responses")
+) -> Dict[str, Any]:
+    df = _df_by_faculty(SURVEYS_DF, faculty)
+    total_responses = int(len(df))
+    # keep total faculties global so the KPI remains comparable
     total_faculties = int(SURVEYS_DF["faculty_name"].nunique())
     return {"total_responses": total_responses, "total_faculties": total_faculties}
 
 
+
 @router.get("/survey/distribution")
 def survey_distribution(
-        category: Literal["age", "gender", "profile", "experience", "mode"] = Query(..., description="Which dimension")
+    category: Literal["age", "gender", "profile", "experience", "mode"] = Query(..., description="Which dimension"),
+    faculty: Optional[str] = Query(None, description="Optional faculty filter")
 ) -> Dict[str, Any]:
-    if SURVEYS_DF.empty:
+    base = _df_by_faculty(SURVEYS_DF, faculty)
+    if base.empty:
         return {"categories": [], "counts": []}
 
     if category == "age":
-        return _age_counts(SURVEYS_DF)
+        return _age_counts(base)
     if category == "gender":
-        return _counts_for_column(SURVEYS_DF, "gender", GENDER_ORDER)
+        return _counts_for_column(base, "gender", GENDER_ORDER)
     if category == "profile":
-        return _counts_for_column(SURVEYS_DF, "ub_profile", PROFILE_ORDER)
+        return _counts_for_column(base, "ub_profile", PROFILE_ORDER)
     if category == "experience":
-        return _counts_for_column(SURVEYS_DF, "teaching_experience", EXPERIENCE_ORDER)
+        return _counts_for_column(base, "teaching_experience", EXPERIENCE_ORDER)
     if category == "mode":
-        return _counts_for_column(SURVEYS_DF, "teaching_mode", MODE_ORDER)
+        return _counts_for_column(base, "teaching_mode", MODE_ORDER)
 
     raise HTTPException(status_code=400, detail="Unknown category")
+
+
+@router.get("/survey/faculties")
+def survey_faculties(min_count: int = 1) -> Dict[str, Any]:
+    if SURVEYS_DF.empty or "faculty_name" not in SURVEYS_DF.columns:
+        return {"faculties": [], "total": 0}
+
+    vc = (
+        SURVEYS_DF["faculty_name"]
+        .dropna()
+        .astype(str)
+        .value_counts()
+        .sort_index()
+    )
+    rows = [
+        {"faculty_name": name, "responses": int(count)}
+        for name, count in vc.items()
+        if int(count) >= int(min_count)
+    ]
+    return {"faculties": rows, "total": int(sum(r["responses"] for r in rows))}
 
 
 @router.get("/faculty/{faculty_name}/scores")
@@ -1936,18 +1969,19 @@ def training_interest_distribution(
         profile=profile,
     )
 
+
 @router.get("/faculty/{faculty_name}/training-needs-distribution")
 def training_needs_distribution(
-    faculty_name: str,
-    gender: Optional[str] = Query(None),
-    experience: Optional[str] = Query(None),
-    profile: Optional[str] = Query(None),
+        faculty_name: str,
+        gender: Optional[str] = Query(None),
+        experience: Optional[str] = Query(None),
+        profile: Optional[str] = Query(None),
 ):
     """
-    100% stacked vertical bar (Training color palette on FE):
+    100% stacked vertical bar:
       X = ["Teaching","Assessment","Materials","Research"]
       Stacks = ["Strongly disagree","Disagree","Agree","Strongly agree"]
-      Values = raw counts (FE will set barnorm='percent')
+      Values = raw counts (barnorm='percent')
     """
     df = _apply_filters(surveys_df, faculty_name, gender, experience, profile)
 

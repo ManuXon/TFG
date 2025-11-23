@@ -5,6 +5,14 @@ html, body, #root {
   overflow: visible;  /* allow content to grow instead of scroll */
 }
 
+@layer components {
+  .faculty-select option {
+    background-color: #ffffff; /* white list background */
+    color: #0f172a;            /* slate-900-ish text */
+  }
+}
+
+
 
 @tailwind base;
 @tailwind components;
