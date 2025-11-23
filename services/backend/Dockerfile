@@ -1,7 +1,6 @@
 # Use a lightweight Python image
 FROM python:3.11-slim
 
-
 # --- Install system dependencies for Pillow & WordCloud ---
 RUN apt-get update && apt-get install -y \
     libjpeg-dev \
@@ -20,11 +19,16 @@ COPY requirements.txt .
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the backend source code (including utils)
+# Copy the backend source code (including utils + scripts)
 COPY src/ ./src
+
+# Copy entrypoint script from project root
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
 
 # Expose FastAPI port
 EXPOSE 8000
 
-# Run the FastAPI app
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Use entrypoint to run precompute at startup, then launch uvicorn
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -206,6 +206,12 @@ const dataAreas: DataArea[] = [
     icon: <GraduationCap className="w-6 h-6" />,
     description: 'Training programs and development',
   },
+  {
+    name: 'Comments',
+    color: '#0ea5e9',
+    icon: <MessageSquare className="w-6 h-6" />,
+    description: 'General comments about AI and the survey',
+  },
 ];
 
 // Canonical faculty name → icon
@@ -938,6 +944,486 @@ const KnowledgeFunctionalityChart: React.FC<{
     </div>
   );
 };
+// -------------------------
+// Open-text helper components (AI analysis visualizations)
+// -------------------------
+
+type OpenTextData = {
+  sentiment: { labels: string[]; counts: number[] };
+  topics: { labels: string[]; counts: number[] };
+};
+
+const OpenTextPerceptionsOpportunities: React.FC<{ facultyName: string }> = ({ facultyName }) => {
+  const [data, setData] = useState<OpenTextData>({
+    sentiment: { labels: [], counts: [] },
+    topics: { labels: [], counts: [] },
+  });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ faculty: facultyName });
+    fetch(`${API_BASE}/api/open_text/perceptions/opportunities?${params.toString()}`, {
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((d: OpenTextData) => {
+        setData({
+          sentiment: d?.sentiment ?? { labels: [], counts: [] },
+          topics: d?.topics ?? { labels: [], counts: [] },
+        });
+      })
+      .catch(() =>
+        setData({
+          sentiment: { labels: [], counts: [] },
+          topics: { labels: [], counts: [] },
+        })
+      )
+      .finally(() => setLoading(false));
+  }, [facultyName]);
+
+  const hasData =
+    data.topics.labels.length > 0 || data.sentiment.labels.length > 0;
+
+  if (loading) {
+    return (
+      <div className="w-full h-[280px] rounded-xl bg-slate-100 animate-pulse" />
+    );
+  }
+
+  if (!hasData) {
+    return (
+      <div className="text-sm text-slate-500 text-center py-8">
+        No open-text data for this question in this faculty.
+      </div>
+    );
+  }
+
+  const HEIGHT = 260;
+  const MARGIN = { t: 10, l: 40, r: 10, b: 60 }; // <-- SAME for both
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      {/* Topics / clusters */}
+      <div>
+        <h4 className="text-sm font-semibold text-emerald-700 mb-2">
+          Main recurrent topics
+        </h4>
+        <Plot
+          data={[
+            {
+              x: data.topics.labels,
+              y: data.topics.counts,
+              type: "bar" as const,
+              marker: { color: "#16a34a", opacity: 0.95 },
+              hovertemplate:
+                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
+            },
+          ]}
+          layout={{
+            margin: MARGIN,
+            xaxis: { automargin: true },
+            yaxis: { title: "Responses", rangemode: "tozero" },
+            height: HEIGHT,
+            paper_bgcolor: "rgba(0,0,0,0)",
+            plot_bgcolor: "rgba(0,0,0,0)",
+          }}
+          style={{ width: "100%", height: HEIGHT }}
+          config={{ displayModeBar: false }}
+        />
+      </div>
+
+      {/* Sentiment */}
+      <div>
+        <h4 className="text-sm font-semibold text-emerald-700 mb-2">
+          Sentiment about opportunities & risks
+        </h4>
+        <Plot
+          data={[
+            {
+              x: data.sentiment.labels,
+              y: data.sentiment.counts,
+              type: "bar" as const,
+              marker: {
+                color: ["#ef4444", "#6b7280", "#22c55e"],
+              },
+              hovertemplate:
+                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
+            },
+          ]}
+          layout={{
+            margin: MARGIN,                     // <-- SAME
+            xaxis: { automargin: true },
+            yaxis: { title: "Responses", rangemode: "tozero" },
+            height: HEIGHT,                     // <-- SAME
+            paper_bgcolor: "rgba(0,0,0,0)",
+            plot_bgcolor: "rgba(0,0,0,0)",
+          }}
+          style={{ width: "100%", height: HEIGHT }}
+          config={{ displayModeBar: false }}
+        />
+      </div>
+    </div>
+  );
+};
+
+const OpenTextPerceptionsPositioning: React.FC<{ facultyName: string }> = ({ facultyName }) => {
+  const [data, setData] = useState<OpenTextData>({
+    sentiment: { labels: [], counts: [] },
+    topics: { labels: [], counts: [] },
+  });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ faculty: facultyName });
+    fetch(`${API_BASE}/api/open_text/perceptions/positioning?${params.toString()}`, {
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((d: OpenTextData) => {
+        setData({
+          sentiment: d?.sentiment ?? { labels: [], counts: [] },
+          topics: d?.topics ?? { labels: [], counts: [] },
+        });
+      })
+      .catch(() =>
+        setData({
+          sentiment: { labels: [], counts: [] },
+          topics: { labels: [], counts: [] },
+        })
+      )
+      .finally(() => setLoading(false));
+  }, [facultyName]);
+
+  const hasData =
+    data.topics.labels.length > 0 || data.sentiment.labels.length > 0;
+
+  if (loading) {
+    return (
+      <div className="w-full h-[260px] rounded-xl bg-slate-100 animate-pulse" />
+    );
+  }
+
+  if (!hasData) {
+    return (
+      <div className="text-sm text-slate-500 text-center py-6">
+        No open-text data for this question in this faculty.
+      </div>
+    );
+  }
+
+  const HEIGHT = 300;
+  const MARGIN = { t: 10, l: 40, r: 10, b: 60 }; // unified
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      <div>
+        <h4 className="text-sm font-semibold text-emerald-700 mb-2">
+          Main reasons behind their positioning
+        </h4>
+        <Plot
+          data={[
+            {
+              x: data.topics.labels,
+              y: data.topics.counts,
+              type: "bar" as const,
+              marker: { color: "#16a34a", opacity: 0.95 },
+              hovertemplate: "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
+            },
+          ]}
+          layout={{
+            margin: MARGIN,
+            xaxis: {
+              automargin: true,
+              tickfont: {
+                size: 10,        // <= make labels smaller (try 8–10)
+                family: "Inter, sans-serif", // optional
+              },
+            },
+            yaxis: { title: "Responses", rangemode: "tozero" },
+            height: HEIGHT,
+            paper_bgcolor: "rgba(0,0,0,0)",
+            plot_bgcolor: "rgba(0,0,0,0)",
+          }}
+          style={{ width: "100%", height: HEIGHT }}
+          config={{ displayModeBar: false }}
+        />
+      </div>
+      <div>
+        <h4 className="text-sm font-semibold text-emerald-700 mb-2">
+          Sentiment of these reasons
+        </h4>
+        <Plot
+          data={[
+            {
+              x: data.sentiment.labels,
+              y: data.sentiment.counts,
+              type: "bar" as const,
+              marker: {
+                color: ["#ef4444", "#6b7280", "#22c55e"],
+              },
+              hovertemplate:
+                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
+            },
+          ]}
+          layout={{
+            margin: MARGIN,
+            xaxis: { automargin: true },
+            yaxis: { title: "Responses", rangemode: "tozero" },
+            height: HEIGHT,
+            paper_bgcolor: "rgba(0,0,0,0)",
+            plot_bgcolor: "rgba(0,0,0,0)",
+          }}
+          style={{ width: "100%", height: HEIGHT }}
+          config={{ displayModeBar: false }}
+        />
+      </div>
+    </div>
+  );
+};
+
+
+const OpenTextTrainingOtherNeeds: React.FC<{ facultyName: string }> = ({ facultyName }) => {
+  const [data, setData] = useState<OpenTextData>({
+    sentiment: { labels: [], counts: [] },
+    topics: { labels: [], counts: [] },
+  });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ faculty: facultyName });
+    fetch(`${API_BASE}/api/open_text/training/other_needs?${params.toString()}`, {
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((d: OpenTextData) => {
+        setData({
+          sentiment: d?.sentiment ?? { labels: [], counts: [] },
+          topics: d?.topics ?? { labels: [], counts: [] },
+        });
+      })
+      .catch(() =>
+        setData({
+          sentiment: { labels: [], counts: [] },
+          topics: { labels: [], counts: [] },
+        })
+      )
+      .finally(() => setLoading(false));
+  }, [facultyName]);
+
+  const hasData =
+    data.topics.labels.length > 0 || data.sentiment.labels.length > 0;
+
+  if (loading) {
+    return (
+      <div className="w-full h-[260px] rounded-xl bg-slate-100 animate-pulse" />
+    );
+  }
+
+  if (!hasData) {
+    return (
+      <div className="text-sm text-slate-500 text-center py-6">
+        No additional training needs described for this faculty.
+      </div>
+    );
+  }
+
+  const HEIGHT = 240;
+  const MARGIN = { t: 10, l: 40, r: 10, b: 60 };
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      <div>
+        <h4 className="text-sm font-semibold text-amber-700 mb-2">
+          Other training needs (topics)
+        </h4>
+        <Plot
+          data={[
+            {
+              x: data.topics.labels,
+              y: data.topics.counts,
+              type: "bar" as const,
+              marker: { color: "#b45309", opacity: 0.95 },
+              hovertemplate:
+                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
+            },
+          ]}
+          layout={{
+            margin: MARGIN,
+            xaxis: { automargin: true },
+            yaxis: { title: "Responses", rangemode: "tozero" },
+            height: HEIGHT,
+            paper_bgcolor: "rgba(0,0,0,0)",
+            plot_bgcolor: "rgba(0,0,0,0)",
+          }}
+          style={{ width: "100%", height: HEIGHT }}
+          config={{ displayModeBar: false }}
+        />
+      </div>
+      <div>
+        <h4 className="text-sm font-semibold text-amber-700 mb-2">
+          Sentiment about these needs
+        </h4>
+        <Plot
+          data={[
+            {
+              x: data.sentiment.labels,
+              y: data.sentiment.counts,
+              type: "bar" as const,
+              marker: {
+                color: ["#ef4444", "#6b7280", "#22c55e"],
+              },
+              hovertemplate:
+                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
+            },
+          ]}
+          layout={{
+            margin: MARGIN,
+            xaxis: { automargin: true },
+            yaxis: { title: "Responses", rangemode: "tozero" },
+            height: HEIGHT,
+            paper_bgcolor: "rgba(0,0,0,0)",
+            plot_bgcolor: "rgba(0,0,0,0)",
+          }}
+          style={{ width: "100%", height: HEIGHT }}
+          config={{ displayModeBar: false }}
+        />
+      </div>
+    </div>
+  );
+};
+
+
+const CommentsSection: React.FC<{ facultyName: string }> = ({ facultyName }) => {
+  const [data, setData] = useState<OpenTextData>({
+    sentiment: { labels: [], counts: [] },
+    topics: { labels: [], counts: [] },
+  });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ faculty: facultyName });
+    fetch(`${API_BASE}/api/open_text/comments?${params.toString()}`, {
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((d: OpenTextData) => {
+        setData({
+          sentiment: d?.sentiment ?? { labels: [], counts: [] },
+          topics: d?.topics ?? { labels: [], counts: [] },
+        });
+      })
+      .catch(() =>
+        setData({
+          sentiment: { labels: [], counts: [] },
+          topics: { labels: [], counts: [] },
+        })
+      )
+      .finally(() => setLoading(false));
+  }, [facultyName]);
+
+  const hasData =
+    data.topics.labels.length > 0 || data.sentiment.labels.length > 0;
+
+  const HEIGHT = 260;
+  const MARGIN = { t: 10, l: 40, r: 10, b: 60 };
+
+  if (loading) {
+    return (
+      <div className="w-full h-[280px] rounded-xl bg-slate-100 animate-pulse" />
+    );
+  }
+
+  if (!hasData) {
+    return (
+      <div className="text-sm text-slate-500 text-center py-10">
+        No general comments for this faculty.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center gap-3">
+        <div className="p-3 rounded-xl bg-sky-100 text-sky-600">
+          <MessageSquare className="w-6 h-6" />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-slate-800">
+            General comments on AI and the survey
+          </h3>
+          <p className="text-xs text-slate-500">
+            Aggregated themes and sentiment from the COMENTARIS field.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <div>
+          <h4 className="text-sm font-semibold text-sky-700 mb-2">
+            Main themes
+          </h4>
+          <Plot
+            data={[
+              {
+                x: data.topics.labels,
+                y: data.topics.counts,
+                type: "bar" as const,
+                marker: { color: "#0ea5e9", opacity: 0.95 },
+                hovertemplate:
+                  "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
+              },
+            ]}
+            layout={{
+              margin: MARGIN,
+              xaxis: { automargin: true },
+              yaxis: { title: "Responses", rangemode: "tozero" },
+              height: HEIGHT,
+              paper_bgcolor: "rgba(0,0,0,0)",
+              plot_bgcolor: "rgba(0,0,0,0)",
+            }}
+            style={{ width: "100%", height: HEIGHT }}
+            config={{ displayModeBar: false }}
+          />
+        </div>
+
+        <div>
+          <h4 className="text-sm font-semibold text-sky-700 mb-2">
+            Sentiment
+          </h4>
+          <Plot
+            data={[
+              {
+                x: data.sentiment.labels,
+                y: data.sentiment.counts,
+                type: "bar" as const,
+                marker: {
+                  color: ["#ef4444", "#6b7280", "#22c55e"],
+                },
+                hovertemplate:
+                  "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
+              },
+            ]}
+            layout={{
+              margin: MARGIN,
+              xaxis: { automargin: true },
+              yaxis: { title: "Responses", rangemode: "tozero" },
+              height: HEIGHT,
+              paper_bgcolor: "rgba(0,0,0,0)",
+              plot_bgcolor: "rgba(0,0,0,0)",
+            }}
+            style={{ width: "100%", height: HEIGHT }}
+            config={{ displayModeBar: false }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 // -------------------------
 // Faculty Visualization Layout
@@ -1235,13 +1721,17 @@ const FacultyVisualization: React.FC<{
                             />
                           </div>
                           <div className="mt-6 flex flex-col lg:flex-row gap-6">
+                            <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <PerceptionsProfAttitudeSpider facultyName={faculty.name} facultyColor="#15803d" />
+                            </div>
                             <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
                               <PerceptionsTasksSupportPie facultyName={faculty.name} facultyColor="#15803d" />
                             </div>
 
-                            <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                              <PerceptionsProfAttitudeSpider facultyName={faculty.name} facultyColor="#15803d" />
-                            </div>
+                          </div>
+                           {/* NEW: open-text reasons behind positioning (PER_IA_POSICPROF_PERQUE) */}
+                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                            <OpenTextPerceptionsPositioning facultyName={faculty.name} />
                           </div>
                           {/* NEW: Opportunities & Risks stacked bar */}
                           <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
@@ -1249,6 +1739,10 @@ const FacultyVisualization: React.FC<{
                               facultyName={faculty.name}
                               facultyColor="#15803d"
                             />
+                          </div>
+                           {/* NEW: open-text opportunities/risks (PER_IA_OPORISCUNI_ALTRES) */}
+                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                            <OpenTextPerceptionsOpportunities facultyName={faculty.name} />
                           </div>
                         </div>
                       ) : area.name === 'Training' ? (
@@ -1266,6 +1760,16 @@ const FacultyVisualization: React.FC<{
                             <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200 min-h-[520px]">
                               <TrainingNeedsBar facultyName={faculty.name} facultyColor="#b45309" />
                             </div>
+                          </div>
+                          {/* NEW: open-text "other training needs" at the end of the section */}
+                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                            <OpenTextTrainingOtherNeeds facultyName={faculty.name} />
+                          </div>
+                        </div>
+                        ) : area.name === 'Comments' ? (
+                        <div className="flex flex-col gap-6">
+                          <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                            <CommentsSection facultyName={faculty.name} />
                           </div>
                         </div>
                       ) : null}

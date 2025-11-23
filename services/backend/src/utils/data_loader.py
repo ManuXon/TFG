@@ -831,6 +831,39 @@ def load_surveys_data():
         if col in surveys_df.columns:
             surveys_df[col] = surveys_df[col].map(per_agreement4_mapping)
 
+    # === OPEN-TEXT COLUMNS: keep them in normalized names ===
+    if "PER_IA_OPORISCUNI_ALTRES" in surveys_df.columns:
+        surveys_df["per_ia_oporiscuni_altres_text"] = (
+            surveys_df["PER_IA_OPORISCUNI_ALTRES"]
+            .astype(str)
+            .str.strip()
+            .replace({"nan": None})
+        )
+
+    if "PER_IA_POSICPROF_PERQUE" in surveys_df.columns:
+        surveys_df["per_ia_posicprof_perque_text"] = (
+            surveys_df["PER_IA_POSICPROF_PERQUE"]
+            .astype(str)
+            .str.strip()
+            .replace({"nan": None})
+        )
+
+    if "FOR_IA_NECEFORMAT_ALTRES" in surveys_df.columns:
+        surveys_df["for_ia_neceformat_altres_text"] = (
+            surveys_df["FOR_IA_NECEFORMAT_ALTRES"]
+            .astype(str)
+            .str.strip()
+            .replace({"nan": None})
+        )
+
+    if "COMENTARIS" in surveys_df.columns:
+        surveys_df["comments_text"] = (
+            surveys_df["COMENTARIS"]
+            .astype(str)
+            .str.strip()
+            .replace({"nan": None})
+        )
+
     # ---------- Compute scores per row ----------
     surveys_df["knowledge_score"] = surveys_df.apply(compute_row_knowledge_score, axis=1)
     surveys_df["uses_score"] = surveys_df.apply(compute_row_uses_score, axis=1)
@@ -842,10 +875,15 @@ def load_surveys_data():
     # clean data
     surveys_df.replace(["", " ", "NaN", None], pd.NA, inplace=True)
     surveys_df.dropna(how="all", inplace=True)
-    col = surveys_df['ia_uses_docchange_student']
 
-    uvals = (col.dropna().astype(str).unique())
-    for i, v in enumerate(uvals, 1):
-        print(f"{i:2d}. {v}")
+    #col = surveys_df['ia_uses_docchange_student']
+
+    #uvals = (col.dropna().astype(str).unique())
+    #for i, v in enumerate(uvals, 1):
+    #    print(f"{i:2d}. {v}")
+
+    # Ensure stable integer row IDs for joining with open-text analysis
+    surveys_df = surveys_df.reset_index(drop=True)
+    surveys_df["row_id"] = surveys_df.index.astype(int)
 
     return surveys_df

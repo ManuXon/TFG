@@ -28,6 +28,7 @@ from src.utils.data_loader import (
     TRAINING_INTEREST_MAP, TRAINING_INTEREST_ORDER,
     TRAINING_NEEDS_COLS, TRAINING_NEEDS_AXIS_SHORT_EN, TRAINING_NEEDS_AXIS_LONG_EN,
 )
+from src.utils.open_text_agent import load_open_text_analysis
 
 PER_PROF_ATT_LONG_EN = per_prof_attitude_long_en
 
@@ -74,6 +75,8 @@ try:
     FACULTIES_DF: pd.DataFrame = load_faculties_data()
 except Exception:
     FACULTIES_DF = pd.DataFrame(columns=["faculty_name"])
+
+OPEN_TEXT_ANALYSIS = load_open_text_analysis()
 
 # --- Helpers --------------------------------------------------------------
 
@@ -139,6 +142,50 @@ def _df_by_faculty(df: pd.DataFrame, faculty: Optional[str]) -> pd.DataFrame:
         return df
     fac_key = str(faculty).strip().lower()
     return df[df["faculty_name"].astype(str).str.strip().str.lower() == fac_key]
+
+def _open_text_aggregates(question_id: str, faculty: Optional[str]) -> Dict[str, Any]:
+    if question_id not in OPEN_TEXT_ANALYSIS:
+        return {
+            "sentiment": {"labels": [], "counts": []},
+            "topics": {"labels": [], "counts": []},
+        }
+
+    df_anal = OPEN_TEXT_ANALYSIS[question_id]
+    if df_anal.empty:
+        return {
+            "sentiment": {"labels": [], "counts": []},
+            "topics": {"labels": [], "counts": []},
+        }
+
+    df_surv = SURVEYS_DF[["row_id", "faculty_name"]].copy()
+    df = df_anal.merge(df_surv, on="row_id", how="left")
+
+    if faculty:
+        fac_key = str(faculty).strip().lower()
+        df = df[df["faculty_name"].astype(str).str.strip().str.lower() == fac_key]
+
+    if df.empty:
+        return {
+            "sentiment": {"labels": [], "counts": []},
+            "topics": {"labels": [], "counts": []},
+        }
+
+    # sentiment
+    sent_vc = df["sentiment"].value_counts().to_dict()
+    sent_order = ["negative", "neutral", "positive"]
+    sent_labels = [s for s in sent_order if s in sent_vc]
+    sent_counts = [int(sent_vc[s]) for s in sent_labels]
+
+    # topics (cluster_label)
+    topic_vc = df.groupby("cluster_label")["row_id"].count().sort_values(ascending=False)
+    topic_labels = list(topic_vc.index)
+    topic_counts = [int(v) for v in topic_vc.values]
+
+    return {
+        "sentiment": {"labels": sent_labels, "counts": sent_counts},
+        "topics": {"labels": topic_labels, "counts": topic_counts},
+    }
+
 
 
 # --- Routes ---------------------------------------------------------------
@@ -2020,3 +2067,34 @@ def training_needs_distribution(
         "totals_by_cat": totals_by_cat,
         "long_labels": long_map,
     }
+
+@router.get("/open_text/perceptions/opportunities")
+def open_text_perceptions_opportunities(
+    faculty: Optional[str] = Query(None, description="Faculty name (short EN)")
+) -> Dict[str, Any]:
+    # PER_IA_OPORISCUNI_ALTRES
+    return _open_text_aggregates("per_ia_oporiscuni_altres", faculty)
+
+
+@router.get("/open_text/perceptions/positioning")
+def open_text_perceptions_positioning(
+    faculty: Optional[str] = Query(None, description="Faculty name (short EN)")
+) -> Dict[str, Any]:
+    # PER_IA_POSICPROF_PERQUE
+    return _open_text_aggregates("per_ia_posicprof_perque", faculty)
+
+
+@router.get("/open_text/training/other_needs")
+def open_text_training_other_needs(
+    faculty: Optional[str] = Query(None, description="Faculty name (short EN)")
+) -> Dict[str, Any]:
+    # FOR_IA_NECEFORMAT_ALTRES
+    return _open_text_aggregates("for_ia_neceformat_altres", faculty)
+
+
+@router.get("/open_text/comments")
+def open_text_general_comments(
+    faculty: Optional[str] = Query(None, description="Faculty name (short EN)")
+) -> Dict[str, Any]:
+    # COMENTARIS
+    return _open_text_aggregates("comments", faculty)
