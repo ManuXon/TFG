@@ -1,20 +1,26 @@
-# Use the official Python image from Docker Hub
-FROM python:3.9-slim
+# 1️⃣ Build React (only used in prod)
+FROM node:18 AS react-build
+WORKDIR /app
+COPY react-components/ ./react-components/
+WORKDIR /app/react-components
+RUN npm install --legacy-peer-deps && npm run build
 
-# Set the working directory in the container
+
+# 2️⃣ Dash / Python stage
+FROM python:3.11-slim
 WORKDIR /app
 
-# Copy the requirements file to the container
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code
+# For prod: copy everything
+ARG ENV=prod
 COPY . .
 
-# Expose port 8050 for the Dash app
+# Copy built React assets only for prod
+COPY --from=react-build /app/react-components/build ./assets/react
+
 EXPOSE 8050
 
-# Command to run the Dash app
+# Use CMD override for dev (via compose)
 CMD ["python", "app.py"]

@@ -1,16 +1,17 @@
 import dash
 from dash import dcc, html
 import dash_bootstrap_components as dbc
+import dash_dangerously_set_inner_html
 from components.callbacks import register_callbacks
+from dash.dependencies import Input, Output
+import dash  # for dash.clientside.ClientsideFunction
 from components.layout import layout  # Import the layout from layout.py
 
 # Load external stylesheets (Bootstrap and custom CSS)
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, "custom.css",
-                                                "https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/3.4.11/tailwind.min.css"], suppress_callback_exceptions=True)
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, "custom.css"], suppress_callback_exceptions=True)
+
 
 # Header
-# Header with logo on the right
-
 header = html.Header(
     className='d-flex align-items-center justify-content-between py-3 px-4',
     children=[
@@ -35,13 +36,20 @@ header = html.Header(
         html.Nav(
             className='d-flex align-items-center gap-4',
             children=[
-                html.A(
-                    "Faculties",
-                    href="#",
-                    className='text-dark font-medium-h text-decoration-none'
+                html.Button(
+                    "Survey",
+                    id="open-survey",
+                    n_clicks=0,
+                    className='text-dark font-medium-h',
+                    style={
+                        'background': 'none',
+                        'border': 'none',
+                        'padding': 0,
+                        'cursor': 'pointer'
+                    }
                 ),
                 html.A(
-                    "Teachers",
+                    "Faculties",
                     href="#",
                     className='text-dark font-medium-h text-decoration-none'
                 ),
@@ -65,7 +73,7 @@ footer = html.Footer(
         html.Div("Data collected and analyzed by a Teaching Innovation Project (mapAI-UB)",
                  style={"text-align": "center", "color": "white"})
     ],
-    style={"background-color": "#343a40", "padding": "10px 0", "margin-top": "auto", "position": "sticky",
+    style={"background-color": "#343a40", "padding": "3px 0", "margin-top": "auto", "margin-bottom": '-5px',
            "bottom": "0"}
 )
 
@@ -85,20 +93,28 @@ app.layout = html.Div(
             },
             children=[
                 header,  # Header component
+                # Mount the modal custom element once:
+                dash_dangerously_set_inner_html.DangerouslySetInnerHTML("<ub-survey-overview></ub-survey-overview>"),
                 layout,  # Main content (imported from layout.py)
-                footer   # Footer component
+                footer  # Footer component
             ]
-        )
+        ),
+        # a tiny store to trigger clientside event
+        dcc.Store(id="survey-open-signal")
     ],
     style={
         "background-color": "#f8f9fa",  # Optional outer background
-        "min-height": "100vh",          # Ensures the container spans the viewport
+        "min-height": "100vh",  # Ensures the container spans the viewport
         "display": "flex",
         "flex-direction": "column",
     }
 )
-
-
+# 🔔 Wire the header button to the web component via a clientside callback
+app.clientside_callback(
+    dash.ClientsideFunction(namespace="survey", function_name="open"),
+    Output("survey-open-signal", "data"),
+    Input("open-survey", "n_clicks"),
+)
 
 # Register Callbacks
 register_callbacks(app)

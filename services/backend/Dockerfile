@@ -1,23 +1,34 @@
-# Use the official Python image as the base
-FROM python:3.9-slim
+# Use a lightweight Python image
+FROM python:3.11-slim
 
-# Set the working directory inside the container
+# --- Install system dependencies for Pillow & WordCloud ---
+RUN apt-get update && apt-get install -y \
+    libjpeg-dev \
+    zlib1g-dev \
+    libfreetype6-dev \
+    libpng-dev \
+    libopenblas-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
 WORKDIR /app
 
-# Copy the requirements file into the container
+# Copy requirements first (for caching)
 COPY requirements.txt .
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application code into the container
-COPY . .
+# Copy the backend source code (including utils + scripts)
+COPY src/ ./src
 
-# Set the PYTHONPATH to include the src directory
-ENV PYTHONPATH=/app/src
+# Copy entrypoint script from project root
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
 
-# Expose the FastAPI port (default is 8000)
+# Expose FastAPI port
 EXPOSE 8000
 
-# Command to run the application
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Use entrypoint to run precompute at startup, then launch uvicorn
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

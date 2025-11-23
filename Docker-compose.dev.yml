@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./services/backend
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services/backend:/app
+    networks:
+      - tfg-network
+
+  frontend:
+    build:
+      context: ./services/frontend
+      args:
+        ENV: dev
+    command: python app.py --debug
+    ports:
+      - "8050:8050"
+    environment:
+      - DASH_DEBUG_MODE=True
+      - FLASK_ENV=development
+    volumes:
+      - ./services/frontend:/app
+      - ./services/frontend/react-components:/app/react-components
+    depends_on:
+      - backend
+    networks:
+      - tfg-network
+
+networks:
+  tfg-network:
+    driver: bridge
+
+
+# docker-compose -f docker-compose.dev.yml up --build

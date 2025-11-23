@@ -1,8 +1,9 @@
 fastapi
 uvicorn
-httpx
-requests
-pydantic
-pytest
-sqlalchemy
-psycopg2-binary
+pandas
+numpy
+wordcloud
+pillow
+matplotlib
+pyarrow
+openai>=1.6.0,<2.0.0

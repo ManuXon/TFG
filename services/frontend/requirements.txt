@@ -9,3 +9,6 @@ dash-deck
 geopandas
 matplotlib
 circlify
+flask
+dash-dangerously-set-inner-html
+

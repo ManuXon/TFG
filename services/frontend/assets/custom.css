@@ -7,6 +7,23 @@ html, body {
     flex-direction: column;
     overflow-x: hidden; /* Prevent horizontal scrolling */
 }
+/* tighter dropdown text */
+.Select--single > .Select-control .Select-value,
+.Select-placeholder {
+  font-size: 0.95rem;
+  color: #334155;
+}
+
+/* hover focus on filter strip dropdowns */
+.Select-control {
+  border-radius: 10px !important;
+}
+
+/* radio items “pill” pressed state (approximate) */
+#chart-type-toggle label:hover {
+  filter: brightness(0.98);
+}
+
 
 #app-container {
     flex: 1; /* Allows the layout to grow and fill the height */
@@ -139,7 +156,7 @@ button, .btn {
     border: 1px solid #ddd;
     border-radius: 10px;
     background-color: #ffffff;
-    padding: 15px;
+    padding: 0px;
 }
 #spike-map {
     position: relative;
@@ -480,4 +497,29 @@ button, .btn {
 
 }#_dash-global-error-container > div > div:nth-child(4) > div:nth-child(1){
     height: 0px;
+}
+
+ /* hide the right explanatory column under 620px,
+   and let the left column take full width */
+@media (max-width: 620px) {
+  .hide-below-620 {
+    display: none !important;
+  }
+
+  .full-below-620 {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+    padding-right: 0 !important;
+  }
+}
+
+@media (max-width: 1239px) {
+  .break-ai-col {
+    display: none !important;
+  }
+}
+@media (min-width: 1240px) {
+  .break-ai-col{
+    display: block !important;
+  }
 }

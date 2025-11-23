@@ -1,5 +1,5 @@
-from dash import dcc, html
-from dash.dependencies import Input, Output, State
+from dash import dcc, html, clientside_callback
+from dash.dependencies import Input, Output, State, ClientsideFunction
 import dash
 import plotly.express as px
 import plotly.graph_objects as go
@@ -7,8 +7,6 @@ import pandas as pd
 import pydeck as pdk
 import dash_deck
 import circlify
-
-from utils.data_fetcher import get_latest_ia_usages, get_all_historical_data
 
 from utils.data_fetcher import get_spike_map_data, get_sankey_chart_data, get_treemap_data
 
@@ -44,7 +42,7 @@ def register_callbacks(app):
             "ColumnLayer",
             data=data,
             get_position=["longitude", "latitude"],
-            get_elevation="category_score*10.1",  # Scale spike height
+            get_elevation="category_score*1.1",  # Scale spike height
             elevation_scale=10,
             radius=60,
             get_fill_color="color_rgb",
@@ -68,7 +66,7 @@ def register_callbacks(app):
             layers=[spike_layer],
             initial_view_state=view_state,
             map_provider='mapbox',
-            map_style="mapbox://styles/mapbox/satellite-streets-v12",
+            map_style="mapbox://styles/mapbox/outdoors-v12",
             tooltip={"text": "{faculty_name}: {category_score}"},
             api_keys={
                 "mapbox": "pk.eyJ1IjoibWFudS11YiIsImEiOiJjbTN0M2E4bDcwNTdjMmxzZjUxZzEwd3YwIn0.nP8eJ0etV09R51KoBC47FA"}
@@ -79,10 +77,7 @@ def register_callbacks(app):
         # Remember to make apikey as os.env
         return dash_deck.DeckGL(r.to_json(), id="deck-map",
                                 mapboxKey="pk.eyJ1IjoibWFudS11YiIsImEiOiJjbTN0M2E4bDcwNTdjMmxzZjUxZzEwd3YwIn0.nP8eJ0etV09R51KoBC47FA",
-                                style={"width": "100%", "height": "499px"})
-
-        # Default case for no data
-        return html.Div("No Data Available for Spike Map", style={"text-align": "center", "color": "red"})
+                                style={"width": "100%", "height": "700px"})
 
     @app.callback(
         Output("map-legend", "children"),
@@ -120,8 +115,10 @@ def register_callbacks(app):
 
         return html.Div(
             [
-                html.H4("Top 10 Faculties", className="legend-title"),
-                html.Div(legend_items, className="legend-content"),
+                html.H4("Selected faculties 10/10", className="legend-title"),
+                html.Div(legend_items, className="legend-content",
+                         style={'height': '450px', 'max-height': '450px', 'justify-content': 'start', 'display': 'grid',
+                                'justify-items': 'start'}),
             ]
         )
 
@@ -200,164 +197,437 @@ def register_callbacks(app):
 
         return fig, disable_prev, disable_next
 
-    # Define the Sankey chart creation logic
     def create_sankey_chart(clicked_node=None):
+        import plotly.graph_objects as go
+
         data = get_sankey_chart_data()
+        labels = list(data["labels"])
+        n = len(labels)
 
-        # Generate colors for all layers
-        node_colors = []
-        for label in data["labels"]:
-            if label in data["faculty_colors"]:
-                node_colors.append(data["faculty_colors"][label])  # Faculty colors
-            else:
-                if label in ["Knowledge", "Uses", "Perceptions", "Training Needs"]:
-                    layer_colors = {
-                        "Knowledge": "#fecaca",
-                        "Uses": "#e9d5ff",
-                        "Perceptions": "#bbf7d0",
-                        "Training Needs": "#fef08a",
-                    }
-                    node_colors.append(layer_colors[label])
-                elif label in ["Gender", "Teaching Experience", "UB Profile"]:
-                    layer_colors = {
-                        "Gender": "#FCB8F7",
-                        "Teaching Experience": "#5CEE58",
-                        "UB Profile": "#4b95f9",
-                    }
-                    node_colors.append(layer_colors[label])
-                elif label in ["Female", "Male", "Non-binary", "Others", "No answer"]:
-                    layer_colors = {
-                        "Female": "#FCB8F7",
-                        "Male": "#FCB8F7",
-                        "Non-binary": "#FCB8F7",
-                        "Others": "#FCB8F7",
-                        "No answer": "#FCB8F7",
-                    }
-                    node_colors.append(layer_colors[label])
-                elif label in ["Less than 5 years", "Between 5 and 10 years", "Between 10 and 20 years",
-                               "More than 20 years"]:
-                    layer_colors = {
-                        "Less than 5 years": "#5CEE58",
-                        "Between 5 and 10 years": "#5CEE58",
-                        "Between 10 and 20 years": "#5CEE58",
-                        "More than 20 years": "#5CEE58",
-                    }
-                    node_colors.append(layer_colors[label])
-                elif label in ["Associate", "PreDoc", "Permanent Collaborator", "Permanent Doctor Collaborator",
-                               "Lecturer", "PostDoc", "Aggregate", "Tenured", "Professor"]:
-                    layer_colors = {
-                        "Associate": "#4b95f9",
-                        "PreDoc": "#4b95f9",
-                        "Permanent Collaborator": "#4b95f9",
-                        "Permanent Doctor Collaborator": "#4b95f9",
-                        "PostDoc": "#4b95f9",
-                        "Lecturer": "#4b95f9",
-                        "Aggregate": "#4b95f9",
-                        "Tenured": "#4b95f9",
-                        "Professor": "#4b95f9",
-                    }
-                    node_colors.append(layer_colors[label])
-                else:
-                    node_colors.append("#008000")  # Fallback color
-        # Filter nodes and links if a node is clicked
-        if clicked_node is not None:
-            related_links = [
-                i for i, (source, target) in enumerate(zip(data["sources"], data["targets"]))
-                if source == clicked_node or target == clicked_node
-            ]
-            filtered_sources = [data["sources"][i] for i in related_links]
-            filtered_targets = [data["targets"][i] for i in related_links]
-            filtered_values = [data["values"][i] for i in related_links]
+        # -------------------------
+        # Column model (fixed x)
+        # -------------------------
+        SECTIONS = ["Knowledge", "Uses", "Perceptions", "Training Needs"]
+        HEADERS = ["Gender", "UB Profile", "Teaching Experience"]
 
-            # Identify related nodes
-            related_nodes = set(filtered_sources + filtered_targets)
-            filtered_labels = [label if i in related_nodes else "" for i, label in enumerate(data["labels"])]
-            filtered_colors = [node_colors[i] if i in related_nodes else "rgba(255, 255, 255, 0)"
-                               for i in range(len(data["labels"]))]
-        else:
-            filtered_sources = data["sources"]
-            filtered_targets = data["targets"]
-            filtered_values = data["values"]
-            filtered_labels = data["labels"]
-            filtered_colors = node_colors
+        GENDER = ["Female", "Male", "Non-binary", "No answer"]
+        PROFILE = ["Senior Lecturer", "Associate", "PreDoc", "PostDoc", "Collab", "Lecturer", "Professor"]
+        EXP = ["Less than 5", "Between 5 and 10", "Between 11 and 20", "More than 20"]
 
-        # Generate link colors dynamically based on the filtered target node's color
-        link_colors = [
-            f"rgba({int(filtered_colors[target][1:3], 16)}, {int(filtered_colors[target][3:5], 16)}, {int(filtered_colors[target][5:7], 16)}, 0.5)"
-            if filtered_colors[target].startswith("#")
-            else "rgba(128, 128, 128, 0.5)"  # Fallback color for undefined targets
-            for target in filtered_targets
+        # 0: sections, 1: headers, 2: filter values, 3: faculties
+        def col_of(lab: str) -> int:
+            if lab in SECTIONS:
+                return 0
+            if lab in HEADERS:
+                return 1
+            if lab in GENDER or lab in PROFILE or lab in EXP:
+                return 2
+            if lab in data.get("faculty_colors", {}):
+                return 3
+            return 1
+
+        GROUP_ORDER = [
+            ("Gender", GENDER),
+            ("UB Profile", PROFILE),
+            ("Teaching Experience", EXP),
         ]
 
-        # Create Sankey chart
+        # -------------------------
+        # Colors
+        # -------------------------
+        color = {}
+        for lab in labels:
+            if lab in data.get("faculty_colors", {}):
+                color[lab] = data["faculty_colors"][lab]
+            elif lab in SECTIONS:
+                color[lab] = {
+                    "Knowledge": "#fecaca", "Uses": "#e9d5ff",
+                    "Perceptions": "#bbf7d0", "Training Needs": "#fef08a",
+                }[lab]
+            elif lab in HEADERS:
+                color[lab] = {
+                    "Gender": "#FCB8F7",
+                    "UB Profile": "#4b95f9",
+                    "Teaching Experience": "#5CEE58",
+                }[lab]
+            elif lab in GENDER:
+                color[lab] = "#FCB8F7"
+            elif lab in PROFILE:
+                color[lab] = "#4b95f9"
+            elif lab in EXP:
+                color[lab] = "#5CEE58"
+            else:
+                color[lab] = "#008000"
+
+        # -------------------------
+        # Stable ordering by column (index remap)
+        # -------------------------
+        buckets = {0: [], 1: [], 2: [], 3: []}
+        for i, lab in enumerate(labels):
+            buckets[col_of(lab)].append(i)
+
+        # headers fixed order
+        order_head = {name: k for k, name in enumerate(HEADERS)}
+        buckets[1].sort(key=lambda idx: order_head.get(labels[idx], 999))
+
+        # filter values: grouped and ordered
+        def key_val(idx):
+            lab = labels[idx]
+            for rank, (_g, vals) in enumerate(GROUP_ORDER):
+                if lab in vals:
+                    return (rank, vals.index(lab))
+            return (999, str(lab))
+
+        buckets[2].sort(key=key_val)
+
+        # faculties alphabetical (reduces crossings)
+        buckets[3].sort(key=lambda idx: labels[idx].lower())
+
+        new_order = buckets[0] + buckets[1] + buckets[2] + buckets[3]
+        new_idx = {old: new for new, old in enumerate(new_order)}
+        old_idx = {new: old for old, new in new_idx.items()}
+
+        # Remap links
+        src = [new_idx[s] for s in data["sources"]]
+        tgt = [new_idx[t] for t in data["targets"]]
+        val = list(data["values"])
+
+        # Final label + color arrays in remapped order
+        labs = [labels[old_idx[i]] for i in range(n)]
+        cols = [color[labs[i]] for i in range(n)]
+
+        # -------------------------
+        # Fixed positions (x) per column, y by EXPLICIT label order
+        # (nodes stay as before)
+        # -------------------------
+        x_by_col = {0: 0.06, 1: 0.30, 2: 0.68, 3: 0.93}
+        node_x = [0.0] * n
+        node_y = [0.0] * n
+
+        # map label -> index in FINAL labs
+        label_to_idx = {lab: i for i, lab in enumerate(labs)}
+
+        # ordered indices per column (this is the single source of truth)
+        ordered_col_indices = {0: [], 1: [], 2: [], 3: []}
+
+        # col 0: sections, SECTIONS order
+        for lab in SECTIONS:
+            i = label_to_idx.get(lab)
+            if i is not None:
+                ordered_col_indices[0].append(i)
+
+        # col 1: headers, HEADERS order
+        for lab in HEADERS:
+            i = label_to_idx.get(lab)
+            if i is not None:
+                ordered_col_indices[1].append(i)
+
+        # col 2: categorical filters, GROUP_ORDER order
+        for _, vals in GROUP_ORDER:
+            for lab in vals:
+                i = label_to_idx.get(lab)
+                if i is not None:
+                    ordered_col_indices[2].append(i)
+
+        # col 3: faculties, alphabetical
+        fac_labs = sorted(
+            [lab for lab in data.get("faculty_colors", {}).keys() if lab in label_to_idx]
+        )
+        for lab in fac_labs:
+            ordered_col_indices[3].append(label_to_idx[lab])
+
+        # any leftover labels that weren't picked up: append at their column's end
+        used = set(i for col_idxs in ordered_col_indices.values() for i in col_idxs)
+        for i in range(n):
+            if i in used:
+                continue
+            c = col_of(labs[i])
+            ordered_col_indices.setdefault(c, []).append(i)
+
+        # now assign x,y using THESE explicit ordered lists (unchanged orientation)
+        for c in (0, 1, 2, 3):
+            idxs = ordered_col_indices.get(c, [])
+            m = len(idxs)
+            if m == 0:
+                continue
+            top, bot = 0.04, 0.96
+            step = (bot - top) / (m + 1)
+            for k, i in enumerate(idxs):
+                node_x[i] = x_by_col[c]
+                node_y[i] = top + step * (k + 1)
+
+        # Extra gentle spread for faculties (avoid touching)
+        fac_ids = ordered_col_indices.get(3, [])
+        if len(fac_ids) > 1:
+            factor = 1.08
+            for i in fac_ids:
+                y = node_y[i]
+                node_y[i] = max(0.03, min(0.97, 0.5 + (y - 0.5) * factor))
+
+        # -------------------------
+        # Node/link hovers
+        # -------------------------
+        inflow = [0] * n
+        outflow = [0] * n
+        for s, t, v in zip(src, tgt, val):
+            outflow[s] += v
+            inflow[t] += v
+
+        # Node tooltip: label + In + Out
+        node_hover = [
+            f"<b>{labs[i]}</b><br>"
+            f"In: <b>{inflow[i]}</b><br>"
+            f"Out: <b>{outflow[i]}</b>"
+            f"<extra></extra>"
+            for i in range(n)
+        ]
+
+        # Link tooltip: source → target + flow, using customdata
+        link_customdata = [
+            f"{labs[s]} → {labs[t]}"
+            for s, t in zip(src, tgt)
+        ]
+        link_hover = (
+            "<b>%{customdata}</b><br>"
+            "Flow: <b>%{value}</b>"
+            "<extra></extra>"
+        )
+
+        degree = [inflow[i] + outflow[i] for i in range(n)]
+
+        # No default node text; everything via pills
+        node_label_base = ["" for _ in range(n)]
+
+        def rgba_from_hex(hx, a):
+            hx = hx.lstrip("#")
+            r, g, b = int(hx[0:2], 16), int(hx[2:4], 16), int(hx[4:6], 16)
+            return f"rgba({r},{g},{b},{a})"
+
+        vmax = max(val) if val else 1
+        link_colors_default = [
+            rgba_from_hex(cols[t], 0.30 + 0.50 * (v / vmax))
+            for t, v in zip(tgt, val)
+        ]
+
+        # Click focus: dim unrelated
+        alive_nodes = None
+        if isinstance(clicked_node, int) and 0 <= clicked_node < n:
+            rel_links = [i for i, (s, t) in enumerate(zip(src, tgt)) if s == clicked_node or t == clicked_node]
+            alive_nodes = set()
+            for i in rel_links:
+                alive_nodes.add(src[i])
+                alive_nodes.add(tgt[i])
+
+            link_colors = [
+                link_colors_default[i] if i in rel_links else "rgba(180,180,180,0.07)"
+                for i in range(len(val))
+            ]
+            node_colors = [
+                cols[i] if i in alive_nodes else "rgba(255,255,255,0)"
+                for i in range(n)
+            ]
+            node_labels = [
+                node_label_base[i] if i in alive_nodes else ""
+                for i in range(n)
+            ]
+        else:
+            link_colors = link_colors_default
+            node_colors = cols
+            node_labels = node_label_base
+
+        # -------------------------
+        # Pill annotations with faculty hack (shift -1 after biology)
+        # -------------------------
+        EPS = 0.006  # tiny spacing (~1–2px) between pills and nodes
+
+        def build_annotations(visible_nodes=None):
+            ann = []
+
+            # Generic pill for non-faculty columns
+            def add_pill_general(i, side: str):
+                if visible_nodes is not None and i not in visible_nodes:
+                    return
+
+                # Sankey y: 0 = top, 1 = bottom
+                # Paper y: 0 = bottom, 1 = top
+                y_annot = 1.0 - node_y[i]
+
+                if side == "left":
+                    x = node_x[i] - EPS
+                    xanchor = "right"
+                else:
+                    x = min(0.995, node_x[i] + EPS)
+                    xanchor = "left"
+
+                txt = labs[i] if degree[i] > 0 else ""
+
+                ann.append(dict(
+                    x=x, y=y_annot, xref="paper", yref="paper",
+                    text=txt, showarrow=False,
+                    xanchor=xanchor, yanchor="middle",
+                    font=dict(size=10, color="#334155"),
+                    bgcolor="rgba(255,255,255,1.0)",
+                    bordercolor="rgba(0,0,0,0.18)", borderwidth=1
+                ))
+
+            # Col 0 (sections) → RIGHT of node
+            for i in ordered_col_indices.get(0, []):
+                add_pill_general(i, "right")
+
+            # Col 1 (headers) → LEFT of node
+            for i in ordered_col_indices.get(1, []):
+                add_pill_general(i, "left")
+
+            # Col 2 (filters: gender/profile/exp) → LEFT of node
+            for i in ordered_col_indices.get(2, []):
+                add_pill_general(i, "left")
+
+            # Col 3 (faculties) → RIGHT of node, WITH SHIFT AFTER HOLE
+            fac_idxs = ordered_col_indices.get(3, [])
+            # find the first zero-degree faculty (biology hole)
+            hole_pos = None
+            for j, idx in enumerate(fac_idxs):
+                if degree[idx] == 0:
+                    hole_pos = j
+                    break
+
+            for j, idx in enumerate(fac_idxs):
+                if visible_nodes is not None and idx not in visible_nodes:
+                    continue
+
+                # which node's y do we use?
+                # default: its own node
+                y_source_idx = idx
+
+                # if there is a hole and we're AFTER it, shift one slot up
+                if hole_pos is not None and j > hole_pos:
+                    prev_idx = fac_idxs[j - 1]
+                    y_source_idx = prev_idx
+
+                y_annot = 1.0 - node_y[y_source_idx]
+                x = min(0.995, node_x[idx] + EPS)
+                xanchor = "left"
+
+                # do NOT show text for the zero-degree node itself (biology), but keep slot
+                txt = labs[idx] if degree[idx] > 0 else ""
+
+                ann.append(dict(
+                    x=x, y=y_annot, xref="paper", yref="paper",
+                    text=txt, showarrow=False,
+                    xanchor=xanchor, yanchor="middle",
+                    font=dict(size=10, color="#334155"),
+                    bgcolor="rgba(255,255,255,1.0)",
+                    bordercolor="rgba(0,0,0,0.18)", borderwidth=1
+                ))
+
+            return ann
+
+        annotations_full = build_annotations()
+        annotations_focus = build_annotations(alive_nodes) if alive_nodes is not None else annotations_full
+
+        # -------------------------
+        # Figure
+        # -------------------------
         fig = go.Figure(data=[go.Sankey(
-            arrangement="fixed",  # Fix node positions to enable click events
+            arrangement="fixed",  # lock nodes (non-movable)
             node=dict(
-                pad=15,
-                thickness=20,
-                line=dict(color="black", width=0.5),
-                label=filtered_labels,
-                color=filtered_colors
+                pad=22,
+                thickness=18,
+                line=dict(color="rgba(0,0,0,0.3)", width=0.5),
+                label=node_labels,
+                color=node_colors,
+                x=node_x, y=node_y,
+                hovertemplate=node_hover,  # tooltip on nodes
+                hoverlabel=dict(
+                    bgcolor="rgba(255,255,255,1.0)",
+                    bordercolor="#64748b",
+                    font_size=11
+                ),
             ),
             link=dict(
-                source=filtered_sources,
-                target=filtered_targets,
-                value=filtered_values,
-                color=link_colors
-            )
+                source=src, target=tgt, value=val,
+                color=link_colors,
+                customdata=link_customdata,
+                hovertemplate=link_hover,
+                hoverlabel=dict(
+                    bgcolor="rgba(255,255,255,1.0)",
+                    bordercolor="#64748b",
+                    font_size=11
+                ),
+            ),
         )])
 
-        # Add interactivity for node selection
         fig.update_layout(
             title_text="Interactive Sankey Diagram",
             font_size=10,
-            height=800,
-            margin=dict(l=50, r=50, t=50, b=50),
-            clickmode="event+select"
+            height=640,
+            margin=dict(l=48, r=80, t=50, b=40),
+            clickmode="event+select",
+            annotations=annotations_focus,
+            paper_bgcolor="white",
+            plot_bgcolor="white",
         )
 
+        # Reset: restore full arrays/colors/positions AND full annotation set
         fig.update_layout(
-            updatemenus=[
-                dict(
-                    type="buttons",
-                    showactive=False,
-                    buttons=[
-                        dict(
-                            label="Reset View",
-                            method="update",
-                            args=[{
-                                "node.label": [data["labels"]],
-                                "node.color": [node_colors],
-                                "link.source": [data["sources"]],
-                                "link.target": [data["targets"]],
-                                "link.value": [data["values"]],
-                                "link.color": [[
-                                    f"rgba({int(node_colors[target][1:3], 16)}, "
-                                    f"{int(node_colors[target][3:5], 16)}, "
-                                    f"{int(node_colors[target][5:7], 16)}, 0.5)"
-                                    for target in data["targets"]
-                                ]]
-                            }]
-                        )
-                    ]
-                )
-            ]
+            updatemenus=[dict(
+                type="buttons", showactive=False,
+                x=1.0, xanchor="right", y=1.12, yanchor="top",
+                buttons=[dict(
+                    label="Reset View",
+                    method="update",
+                    args=[
+                        {
+                            "node.label": [node_label_base],
+                            "node.color": [cols],
+                            "node.x": [node_x],
+                            "node.y": [node_y],
+                            "link.source": [src],
+                            "link.target": [tgt],
+                            "link.value": [val],
+                            "link.color": [link_colors_default],
+                        },
+                        {"annotations": annotations_full}
+                    ],
+                )]
+            )]
         )
 
         return fig
 
-    # Dash callbacks
     @app.callback(
         Output("sankey-chart", "figure"),
         Input("sankey-chart", "clickData"),
     )
     def update_chart_on_click(click_data):
-        if click_data:
-            # Extract pointNumber for identification
-            point_number = click_data["points"][0].get("pointNumber")
-            return create_sankey_chart(point_number)
+        """
+        - Node click: use node index (pointNumber/pointIndex).
+        - Link click: focus on the link's TARGET node (more informative).
+        - Background/invalid: reset view.
+        """
+        node_idx = None
+        if click_data and click_data.get("points"):
+            p = click_data["points"][0]
 
-        return create_sankey_chart()
+            # Link click has 'source' and 'target' ints
+            if "source" in p and "target" in p:
+                node_idx = p.get("target")
+
+            else:
+                # Node click → 'pointNumber' (sometimes 'pointIndex')
+                node_idx = p.get("pointNumber")
+                if node_idx is None:
+                    node_idx = p.get("pointIndex")
+
+                # extra guard: Dash can emit strings in odd cases
+                if isinstance(node_idx, str) and node_idx.isdigit():
+                    node_idx = int(node_idx)
+
+            # sanity check
+            if not isinstance(node_idx, int):
+                node_idx = None
+
+        return create_sankey_chart(node_idx)
 
     @app.callback(
         [
@@ -471,55 +741,154 @@ def register_callbacks(app):
             disable_right = current_index_map == len(score_categories) - 1
             nav_style = {"display": "flex"}
 
-        else:
-            # Treemap logic
-            title = "Treemap: Sizing faculties"
-            data = get_treemap_data(gender, teaching_experience, ub_profile)
 
-            # Define colors for dimensions
+
+        else:
+
+            # --- TREEMAP MODE ---
+            title = "Treemap: Sizing faculties"
+
+            raw_rows = get_treemap_data(gender, teaching_experience, ub_profile)
+            tdf = pd.DataFrame(raw_rows)
+
+            # Handle "no data" case
+            if tdf.empty:
+                fig = go.Figure()
+                fig.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    margin=dict(t=20, l=20, r=20, b=20),
+                )
+
+                disable_left = True
+                disable_right = True
+                nav_style = {"display": "none"}
+                return fig, title, disable_left, disable_right, nav_style
+
+            # soft palette per dimension
             dimension_colors = {
-                "Knowledge": "#fecaca",  # Red
-                "Uses": "#e9d5ff",
-                "Perceptions": "#bbf7d0",
-                "Training": "#fef08a",
+                "Knowledge": "#fecaca",  # light red
+                "Uses": "#e9d5ff",  # light violet
+                "Perceptions": "#bbf7d0",  # light green
+                "Training": "#fef08a",  # light yellow
             }
 
-            # Create treemap
-            fig = px.treemap(
-                data,
-                path=["parent", "label"],  # Specify hierarchy: Overall -> Faculty -> Dimension
-                values="value",
-                color='overall_faculty_score',  # Use "color" column to differentiate faculty and dimension colors
+            # aggregate per faculty so we know each faculty's total (sum of its 4 dims)
+            fac_agg = (
+                tdf.groupby(["faculty_name", "short_name", "color"], dropna=False)
+                .agg(
+                    faculty_total_value=("value", "sum"),
+                    overall_faculty_score=("overall_faculty_score", "mean"),
+                )
+                .reset_index()
             )
 
-            # Apply custom color mapping
-            fig.for_each_trace(
-                lambda t: t.update(
-                    marker_colors=[
-                        dimension_colors[id.split("/")[1]] if len(id.split("/")) == 2 else c
-                        for c, id in zip(t.marker.colors, t.ids)
-                    ]
+            # ---- arrays for treemap ----
+            ids: list[str] = []
+            labels: list[str] = []
+            parents: list[str] = []
+            values: list[float] = []
+            colors: list[str] = []
+            hovertexts: list[str] = []
+            text_list: list[str] = []  # visible text drawn in each box
+
+            # ---- ROOT NODE ----
+            root_label = "All Faculties"
+            root_id = "root"  # unique id for the root
+            root_total = float(fac_agg["faculty_total_value"].sum())
+
+            ids.append(root_id)
+            labels.append(root_label)
+            parents.append("")  # root has no parent
+            values.append(root_total)
+            colors.append("rgba(0,0,0,0)")  # transparent-ish
+            hovertexts.append(
+                f"<b>{root_label}</b><br>Total score sum: {root_total:.1f}"
+            )
+            text_list.append(root_label)
+
+            # ---- FACULTY NODES + CHILD DIMENSION NODES ----
+            for _, fac_row in fac_agg.iterrows():
+                fac_name = fac_row["faculty_name"]  # e.g. "Biology"
+                fac_short = fac_row["short_name"]  # short label to show
+                fac_color = fac_row["color"] or "#cccccc"
+                fac_total = float(fac_row["faculty_total_value"])
+                fac_overall = float(fac_row["overall_faculty_score"])
+
+                fac_id = f"fac|{fac_short}"  # UNIQUE faculty id
+
+                # Faculty node points to root_id as parent
+                ids.append(fac_id)
+                labels.append(fac_short)
+                parents.append(root_id)
+                values.append(fac_total)
+                colors.append(fac_color)
+                hovertexts.append(
+                    f"<b>{fac_name}</b><br>"
+                    f"Total score sum (4 dims): {fac_total:.1f}<br>"
+                    f"Overall avg score: {fac_overall:.1f}"
+                )
+                # display text inside the faculty rectangle (name only, no score)
+                text_list.append(fac_short)
+
+                # now add each of its 4 dimension boxes as children of this faculty
+                sub_df = tdf[tdf["faculty_name"] == fac_name]
+                for _, dim_row in sub_df.iterrows():
+                    dim_label = dim_row["label"]  # "Knowledge", "Uses", ...
+                    dim_val = float(dim_row["value"])  # that dimension's score
+                    dim_color = dimension_colors.get(dim_label, "#999999")
+
+                    child_id = f"{fac_id}|{dim_label}"  # UNIQUE child id
+
+                    ids.append(child_id)
+                    labels.append(dim_label)
+                    parents.append(fac_id)  # <-- parent is fac_id, not label
+                    values.append(dim_val)
+                    colors.append(dim_color)
+                    hovertexts.append(
+                        f"<b>{fac_name} – {dim_label}</b><br>"
+                        f"Score: {dim_val:.1f}"
+                    )
+                    # text drawn in each dimension box, show label + score
+                    text_list.append(f"{dim_label}\n{dim_val:.1f}")
+
+            # --- build treemap with unique ids ---
+            fig = go.Figure(
+                go.Treemap(
+                    ids=ids,  # <- unique IDs for EVERY node
+                    labels=labels,  # what user sees
+                    parents=parents,  # MUST match parent IDs, NOT labels
+                    values=values,  # area sizes
+                    text=text_list,  # what’s drawn in the rectangles
+                    textinfo="text",
+                    hovertext=hovertexts,
+                    hoverinfo="text",
+                    marker=dict(
+                        colors=colors,
+                        line=dict(width=1, color="black"),
+                    ),
+                    branchvalues="total",  # parent value = sum(children)
+                    maxdepth=3,  # show root -> faculty -> 4 areas
+                    tiling=dict(
+                        pad=2,
+                        packing="squarify",
+                    ),
+                    pathbar=dict(visible=False),
                 )
             )
 
-            # Update hover and traces
-            fig.update_traces(
-                marker=dict(line=dict(width=1, color="black")),
-                hovertemplate="<b>%{label}</b><br>Score: %{value}<extra></extra>",
-            )
-
-            # Change legend title
             fig.update_layout(
-                coloraxis_colorbar=dict(
-                    title="Faculty Score"  # Set the legend title
-                )
+                margin=dict(t=20, l=20, r=20, b=20),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
             )
 
+            # treemap mode: arrows hidden
             disable_left = True
             disable_right = True
             nav_style = {"display": "none"}
 
-        return fig, title, disable_left, disable_right, nav_style
+            return fig, title, disable_left, disable_right, nav_style
 
 
 """
