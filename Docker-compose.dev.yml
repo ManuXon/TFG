@@ -9,6 +9,7 @@ services:
       - "8000:8000"
     volumes:
       - ./services/backend:/app
+      - - mapai_data:/data
     env_file:
       - ./.env
     environment:

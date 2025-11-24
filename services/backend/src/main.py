@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from src.routers import visualizations
 from src.routers import auth as auth_router
+from src.chatbot import router as chatbot_router
 
 app = FastAPI(title="MapAI API")
 
@@ -21,6 +22,7 @@ app.add_middleware(
 
 app.include_router(auth_router.router)
 app.include_router(visualizations.router)
+app.include_router(chatbot_router.router)
 
 @app.get("/")
 def root():
