@@ -63,7 +63,8 @@ layout = html.Div(
                                 "Already exploring AI? ",
                                 html.A(
                                     "Sign In",
-                                    href='#',
+                                    href="#",
+                                    id="open-auth-signin",  # <-- add id
                                     className='text-primary fw-bold'
                                 )
                             ],
