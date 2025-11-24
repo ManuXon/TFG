@@ -4,11 +4,27 @@ services:
   backend:
     build:
       context: ./services/backend
-    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    # Let Dockerfile ENTRYPOINT+CMD run (no custom command here)
     ports:
       - "8000:8000"
     volumes:
       - ./services/backend:/app
+    env_file:
+      - ./.env
+    environment:
+      # Optional: only if you want to actually wait for Redis
+      WAIT_FOR_REDIS: "1"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      REDIS_URL: redis://redis:6379/0
+      # (you already have this—good)
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS}
+      SECRET_KEY: ${SECRET_KEY}
+      MAX_LOGIN_ATTEMPTS: ${MAX_LOGIN_ATTEMPTS}
+      LOCKOUT_MINUTES: ${LOCKOUT_MINUTES}
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - tfg-network
 
@@ -31,9 +47,27 @@ services:
     networks:
       - tfg-network
 
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - tfg-network
+    restart: unless-stopped
+
 networks:
   tfg-network:
     driver: bridge
 
+volumes:
+  redis-data:
 
-# docker-compose -f docker-compose.dev.yml up --build
+# RUN "python -m src.scripts.users_tui" inside running container as admin to manage users.

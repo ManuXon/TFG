@@ -3,55 +3,61 @@ set -Eeuo pipefail
 
 APP_DIR="/app"
 OPEN_TEXT_DIR="${APP_DIR}/src/data/open_text"
-PRECOMPUTE_SCRIPT="${APP_DIR}/src/scripts/precompute_open_text_analysis.py"
 PRECOMPUTE_MODULE="src.scripts.precompute_open_text_analysis"
 
-echo "[entrypoint] Starting container at $(date -Iseconds)"
+echo "[entrypoint] Start $(date -Iseconds)"
 cd "$APP_DIR"
 
-REQUIRED_QIDS=(
-  "per_ia_oporiscuni_altres"
-  "per_ia_posicprof_perque"
-  "for_ia_neceformat_altres"
-  "comments"
-)
-
-if [ "${SKIP_OPEN_TEXT_PRECOMPUTE:-0}" = "1" ]; then
-  echo "[entrypoint] SKIP_OPEN_TEXT_PRECOMPUTE=1 → skipping open-text precompute."
-else
-  NEED_PRECOMPUTE=0
-
-  if [ "${FORCE_OPEN_TEXT_PRECOMPUTE:-0}" = "1" ]; then
-    echo "[entrypoint] FORCE_OPEN_TEXT_PRECOMPUTE=1 → forcing open-text precompute."
-    NEED_PRECOMPUTE=1
-  else
-    # Comprobar que existen TODOS los parquet requeridos
-    MISSING=0
-    for qid in "${REQUIRED_QIDS[@]}"; do
-      f="${OPEN_TEXT_DIR}/${qid}_analysis.parquet"
-      if [ ! -f "$f" ]; then
-        echo "[entrypoint] Missing $f → need precompute."
-        MISSING=1
-      fi
-    done
-
-    if [ "$MISSING" -eq 1 ]; then
-      NEED_PRECOMPUTE=1
-    else
-      echo "[entrypoint] All required open-text parquet files present → skipping precompute."
-    fi
-  fi
-
-  if [ "$NEED_PRECOMPUTE" -eq 1 ]; then
-    if [ ! -f "$PRECOMPUTE_SCRIPT" ]; then
-      echo "[entrypoint] ERROR: precompute script not found at ${PRECOMPUTE_SCRIPT}" >&2
-      exit 1
-    fi
-    echo "[entrypoint] Running open-text precompute via module ${PRECOMPUTE_MODULE}..."
-    python -m "$PRECOMPUTE_MODULE"
-    echo "[entrypoint] Open-text precompute finished."
-  fi
+# --- Optional: wait for Redis using pure Python (no nc dependency) ---
+if [[ "${WAIT_FOR_REDIS:-0}" == "1" ]]; then
+python - <<'PY'
+import os, socket, sys, time
+host = os.environ.get("REDIS_HOST","redis")
+port = int(os.environ.get("REDIS_PORT","6379"))
+for i in range(60):
+    try:
+        with socket.create_connection((host, port), timeout=1):
+            sys.exit(0)
+    except OSError:
+        time.sleep(1)
+print("Redis not reachable after 60s", file=sys.stderr)
+sys.exit(1)
+PY
 fi
 
-echo "[entrypoint] Launching application: $*"
+# --- Optional precompute for open-text parquet files ---
+if [[ "${SKIP_OPEN_TEXT_PRECOMPUTE:-0}" != "1" ]]; then
+  required_ids=(
+    "per_ia_oporiscuni_altres"
+    "per_ia_posicprof_perque"
+    "for_ia_neceformat_altres"
+    "comments"
+  )
+
+  need=0
+  if [[ "${FORCE_OPEN_TEXT_PRECOMPUTE:-0}" == "1" ]]; then
+    echo "[entrypoint] FORCE_OPEN_TEXT_PRECOMPUTE=1 → precomputing"
+    need=1
+  else
+    missing=0
+    for q in "${required_ids[@]}"; do
+      f="${OPEN_TEXT_DIR}/${q}_analysis.parquet"
+      [[ -f "$f" ]] || { echo "[entrypoint] Missing $f"; missing=1; }
+    done
+    [[ $missing -eq 1 ]] && need=1 || echo "[entrypoint] Parquets present → skip precompute"
+  fi
+
+  if [[ $need -eq 1 ]]; then
+    echo "[entrypoint] Running: python -m ${PRECOMPUTE_MODULE}"
+    python -m "${PRECOMPUTE_MODULE}"
+    echo "[entrypoint] Precompute done."
+  fi
+else
+  echo "[entrypoint] SKIP_OPEN_TEXT_PRECOMPUTE=1 → skipping precompute."
+fi
+
+# --- DO NOT auto-launch the TUI here in sane workflow ---
+# If you ever want it, you can guard it behind ADMIN_TUI_ON_START, but leave it OFF in dev.
+
+echo "[entrypoint] Exec: $*"
 exec "$@"

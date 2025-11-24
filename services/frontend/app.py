@@ -53,15 +53,15 @@ header = html.Header(
                     href="#",
                     className='text-dark font-medium-h text-decoration-none'
                 ),
-                dbc.Button(
+                # header (snippet)
+                html.Button(
                     "Analist mode",
+                    id="open-auth-analyst",  # <-- add id
+                    n_clicks=0,
                     className='rounded px-3 py-2 fw-bold',
-                    style={
-                        'background-color': '#6ea8fe',
-                        'color': '#f7f7f7',
-                        'border': 'none'
-                    }
-                )
+                    style={'background-color': '#6ea8fe', 'color': '#f7f7f7', 'border': 'none'}
+                ),
+
             ]
         )
     ]
@@ -95,8 +95,10 @@ app.layout = html.Div(
                 header,  # Header component
                 # Mount the modal custom element once:
                 dash_dangerously_set_inner_html.DangerouslySetInnerHTML("<ub-survey-overview></ub-survey-overview>"),
+                dash_dangerously_set_inner_html.DangerouslySetInnerHTML("<ub-auth-modal></ub-auth-modal>"),
                 layout,  # Main content (imported from layout.py)
-                footer  # Footer component
+                footer,  # Footer component
+                dcc.Store(id="auth-open-signal"),
             ]
         ),
         # a tiny store to trigger clientside event
@@ -114,6 +116,12 @@ app.clientside_callback(
     dash.ClientsideFunction(namespace="survey", function_name="open"),
     Output("survey-open-signal", "data"),
     Input("open-survey", "n_clicks"),
+)
+
+app.clientside_callback(
+    dash.ClientsideFunction(namespace="auth", function_name="open"),
+    Output("auth-open-signal", "data"),
+    [Input("open-auth-analyst", "n_clicks"), Input("open-auth-signin", "n_clicks")],
 )
 
 # Register Callbacks

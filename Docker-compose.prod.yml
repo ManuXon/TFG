@@ -1,30 +1,74 @@
 version: "3.9"
 
 services:
+  # Session store
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - tfg-network
+    restart: unless-stopped
+
+  # FastAPI backend (uses ENTRYPOINT+CMD from Dockerfile)
   backend:
     build:
       context: ./services/backend
-    ports:
-      - "8000:8000"
     env_file:
       - ./backend.env
+    environment:
+      # force in-cluster address + optional wait-on-redis
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      REDIS_URL: "redis://redis:6379/0"
+      WAIT_FOR_REDIS: "1"
+      # optionally skip/force precompute in prod via env:
+      # SKIP_OPEN_TEXT_PRECOMPUTE: "0"
+      # FORCE_OPEN_TEXT_PRECOMPUTE: "0"
+    depends_on:
+      redis:
+        condition: service_healthy
+    # Expose only if you really need direct access from host;
+    # otherwise put this behind a reverse proxy and remove this line.
+    ports:
+      - "8000:8000"
     networks:
       - tfg-network
+    restart: unless-stopped
 
+  # Dash frontend
   frontend:
     build:
       context: ./services/frontend
       args:
         ENV: prod
+    environment:
+      # let the frontend call the API over Docker DNS
+      MAPAI_API_BASE: "http://backend:8000"
+      # if you need it baked client-side, also pass a build arg and read it in your app
+      # PUBLIC_API_BASE: "http://backend:8000"
+    depends_on:
+      backend:
+        condition: service_started
+    # same note as backend: if front is behind reverse proxy, you may not need to publish
     ports:
       - "8050:8050"
-    depends_on:
-      - backend
     networks:
       - tfg-network
+    restart: unless-stopped
 
 networks:
   tfg-network:
     driver: bridge
 
-# docker-compose -f docker-compose.prod.yml up --build -d
+volumes:
+  redis-data:
+
+
+# RUN "python -m src.scripts.users_tui" inside running container as admin to manage users.
