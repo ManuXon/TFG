@@ -337,7 +337,7 @@ const KnowledgeBarChart = ({ facultyName }: { facultyName: string }) => {
             },
             yaxis: {
               title: {
-                text: "Avg Knowledge Score (1–4)",
+                text: "Avg Knowledge Score",
                 tickfont: { size: 10 },
               },
               range: [0, 4],
@@ -444,7 +444,7 @@ const KnowledgeBarChart = ({ facultyName }: { facultyName: string }) => {
           },
           xaxis: { title: data.demographics[0], tickfont: { size: 10 } },
           yaxis: {
-            title: { text: "Avg Knowledge Score (1–4)" },
+            title: { text: "Avg Knowledge Score" },
             tickfont: { size: 10 },
             range: [0, 4],
           },

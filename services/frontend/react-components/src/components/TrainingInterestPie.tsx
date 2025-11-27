@@ -49,7 +49,7 @@ const TrainingInterestPie: React.FC<{
   const winW = useWindowWidth();
   const lt670 = winW < 670;
   const lt600 = winW < 600;
-  const pieTitleSize = lt600 ? 9 : lt670 ? 10 : 13;
+  const pieTitleSize = lt600 ? 9 : lt670 ? 10 : 12;
 
   useEffect(() => {
     setLoading(true);
