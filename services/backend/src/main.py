@@ -9,6 +9,7 @@ app = FastAPI(title="MapAI API")
 ALLOWED_ORIGINS = [
     "http://localhost:8050",
     "http://127.0.0.1:8050",
+    "http://localhost:3000"
     # add your prod domain(s) here, e.g. "https://mapai.ub.edu"
 ]
 

@@ -568,9 +568,14 @@ const KnowledgeFunctionalityChart: React.FC<{
   facultyName: string;
   facultyColor: string; // passed in from parent
 }> = ({ facultyName, facultyColor }) => {
-  const [chartType, setChartType] = useState<'bar' | 'heatmap' | 'radar'>(
-    'radar'
-  );
+  // chart "family" for the select
+  const [chartFamily, setChartFamily] =
+    useState<"bar" | "heatmap" | "spider">("spider");
+
+  // spider variant for the buttons
+  const [spiderMode, setSpiderMode] =
+    useState<"area" | "bars">("area");
+
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [noData, setNoData] = useState<boolean>(false);
@@ -587,7 +592,7 @@ const KnowledgeFunctionalityChart: React.FC<{
   const baseTitleFont = lt600 ? 14 : lt740 ? 18 : 21;
   const barTitleSize = lt600 ? 14 : lt684 ? 15 : baseTitleFont;
   const barLegendSize = lt684 ? 11 : 14;
-  const radarLegendSize   = lt740 ? 12 : 14;
+  const radarLegendSize = lt740 ? 12 : 14;
   const radarTickFontSize = lt740 ? 10 : 13;
 
   // RGBA helper for tinted "no data"
@@ -675,6 +680,64 @@ const KnowledgeFunctionalityChart: React.FC<{
     funcLabels.map((_, i) => Object.values(d)[i + 1])
   );
 
+  // >>> dynamic range for bar spider based on stacked column sums <<<
+  const maxRadialValue = React.useMemo(() => {
+    if (!matrix.length) return 4; // fallback when no data
+
+    const numTasks = matrix[0].length;
+    let globalMax = 0;
+
+    for (let j = 0; j < numTasks; j++) {
+      let colSum = 0;
+      for (let i = 0; i < matrix.length; i++) {
+        const v = matrix[i][j];
+        if (typeof v === "number" && isFinite(v)) {
+          colSum += v;
+        }
+      }
+      if (colSum > globalMax) {
+        globalMax = colSum;
+      }
+    }
+
+    if (!isFinite(globalMax) || globalMax <= 0) return 4;
+    return Math.ceil(globalMax); // closest bigger integer
+  }, [matrix]);
+  // <<< END dynamic range >>>
+
+  // Per-knowledge-group stats across all functionalities
+  const groupStats = data.map((d) => ({
+    label: d.knowledge_label,
+    n: d.n,
+    pct: d.pct,
+    mean: d.group_mean,
+    min: d.group_min,
+    max: d.group_max,
+  }));
+
+  // Canonical knowledge order
+  const canonicalKnowledgeOrder = [
+    "No knowledge",
+    "Little knowledge",
+    "Good knowledge",
+    "Expert knowledge",
+  ];
+
+  // group stats ordered canonically (and filtered to those that exist)
+  const orderedGroupStats = canonicalKnowledgeOrder
+    .map((label) => groupStats.find((g) => g.label === label))
+    .filter((g): g is (typeof groupStats)[number] => Boolean(g));
+
+  // total N across all visible knowledge groups (for legend + info)
+  const totalN = orderedGroupStats.reduce(
+    (acc, g) => acc + (typeof g.n === "number" ? g.n : 0),
+    0
+  );
+
+  // scale to map familiarity 1–4 → 0–100
+  const FAMILIARITY_SCALE = 100 / 3;
+
+  // reds palette for top chart
   const colorPalette = [
     "#7f1d1d",
     "#991b1b",
@@ -691,10 +754,18 @@ const KnowledgeFunctionalityChart: React.FC<{
     "#451a03",
   ];
 
+  // shared color mapping for radar + barpolar
+  const radarColors: Record<string, string> = {
+    "No knowledge": "#b91c1c",
+    "Little knowledge": "#fa7112",
+    "Good knowledge": "#fd9c49",
+    "Expert knowledge": "#fac681",
+  };
+
   return (
     <div>
       {/* Filters ALWAYS visible */}
-      <div className="flex flex-wrap justify-center gap-2 mb-4">
+      <div className="flex flex-wrap justify-center gap-2 mb-3">
         <select
           value={gender}
           onChange={(e) => setGender(e.target.value)}
@@ -731,19 +802,55 @@ const KnowledgeFunctionalityChart: React.FC<{
           <option value="Lecturer">Lecturer</option>
           <option value="Professor">Professor</option>
         </select>
+        {/* DROPDOWN NOW ONLY 3 OPTIONS */}
         <select
-          value={chartType}
-          onChange={(e) => setChartType(e.target.value as any)}
+          value={chartFamily}
+          onChange={(e) =>
+            setChartFamily(e.target.value as "bar" | "heatmap" | "spider")
+          }
           className="border border-slate-300 rounded-md px-3 py-1 text-slate-700 text-sm shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-red-200 transition"
         >
           <option value="bar">Grouped Bar</option>
           <option value="heatmap">Heatmap</option>
-          <option value="radar">Spider</option>
+          <option value="spider">Spider</option>
         </select>
       </div>
 
+      {/* SPIDER MODE TOGGLE – centered, outside the graph */}
+      {chartFamily === "spider" && !loading && !noData && (
+        <div className="flex justify-center mb-3">
+          <div className="inline-flex rounded-lg border border-slate-300 bg-white shadow-sm overflow-hidden">
+            <button
+              onClick={() => setSpiderMode("area")}
+              className={
+                "px-3 py-1.5 text-xs md:text-sm " +
+                (spiderMode === "area"
+                  ? "bg-rose-50 text-rose-700"
+                  : "text-slate-600 hover:bg-slate-50")
+              }
+            >
+              Spider (area)
+            </button>
+            <button
+              onClick={() => setSpiderMode("bars")}
+              className={
+                "px-3 py-1.5 text-xs md:text-sm border-l border-slate-300 " +
+                (spiderMode === "bars"
+                  ? "bg-rose-50 text-rose-700"
+                  : "text-slate-600 hover:bg-slate-50")
+              }
+            >
+              Spider (bars)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Chart Area */}
-      <div className="relative w-full h-[600px] rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div
+        className="relative w-full rounded-xl border border-slate-200 bg-white overflow-hidden flex flex-col"
+        style={{ height: chartFamily === "bar" ? "730px" : "600px" }}
+      >
         {loading && (
           <div className="absolute inset-0 bg-slate-100 animate-pulse" />
         )}
@@ -767,60 +874,171 @@ const KnowledgeFunctionalityChart: React.FC<{
 
         {!loading && !noData && (
           <>
-            {chartType === "bar" && (
-              <Plot
-                data={funcLabels.map((label, i) => ({
-                  x: knowledgeLabels,
-                  y: data.map((d) => Object.values(d)[i + 1]),
-                  name: label,
-                  type: "bar",
-                  orientation: "v",
-                  marker: {
-                    color: colorPalette[i % colorPalette.length],
-                  },
-                  hovertemplate:
-                    `<b>IA Knowledge:</b> %{x}<br><b>${label}:</b> %{y:.2f}<extra></extra>`,
-                }))}
-                layout={{
-                  barmode: "group",
-                  title: {
-                    text: "Whats the knowledge within applications?",
-                    y: 0.96,
-                    font: { size: barTitleSize },
-                  },
-                  xaxis: {
-                    categoryorder: "array",
-                    categoryarray: [
-                      "No knowledge",
-                      "Little knowledge",
-                      "Good knowledge",
-                      "Expert knowledge",
-                    ],
-                    tickfont: { size: radarTickFontSize },
-                  },
-                  yaxis: {
-                    title: { text: "Avg Application Familiarity (1–4)" },
-                    range: [0, 4],
-                    automargin: true,
-                  },
-                  legend: {
-                    orientation: "h",
-                    y: -0.2,
-                    x: 0.071,
-                    font: { size: barLegendSize },
-                    bordercolor: "#e2e8f0",
-                    borderwidth: 1,
-                  },
-                  margin: { t: 80, l: 60, r: 30, b: 80 },
-                  paper_bgcolor: "rgba(0,0,0,0)",
-                  plot_bgcolor: "rgba(0,0,0,0)",
-                }}
-                style={{ width: "100%", height: "100%" }}
-                config={{ displayModeBar: false }}
-              />
+            {chartFamily === "bar" && (
+              <>
+                {/* TOP: grouped bar */}
+                <div className="flex-1">
+                  <Plot
+                    data={funcLabels.map((label, i) => ({
+                      x: knowledgeLabels,
+                      y: data.map((d) => Object.values(d)[i + 1]),
+                      name: label,
+                      type: "bar",
+                      orientation: "v",
+                      marker: {
+                        color: colorPalette[i % colorPalette.length],
+                      },
+                      hovertemplate:
+                        `<b>AI Knowledge:</b> %{x}<br><b>${label}:</b> %{y:.2f}<extra></extra>`,
+                    }))}
+                    layout={{
+                      barmode: "group",
+                      title: {
+                        text: "Whats the knowledge within applications?",
+                        y: 0.96,
+                        font: { size: barTitleSize },
+                      },
+                      xaxis: {
+                        categoryorder: "array",
+                        categoryarray: canonicalKnowledgeOrder,
+                        tickfont: { size: radarTickFontSize },
+                      },
+                      yaxis: {
+                        title: { text: "Avg Application Familiarity (1–4)" },
+                        range: [0, 4],
+                        automargin: true,
+                      },
+                      legend: {
+                        orientation: "h",
+                        y: -0.2,
+                        x: 0.071,
+                        font: { size: barLegendSize },
+                        bordercolor: "#e2e8f0",
+                        borderwidth: 1,
+                      },
+                      margin: { t: 80, l: 60, r: 30, b: 80 },
+                      paper_bgcolor: "rgba(0,0,0,0)",
+                      plot_bgcolor: "rgba(0,0,0,0)",
+                    }}
+                    style={{ width: "100%", height: "390px" }}
+                    config={{ displayModeBar: false }}
+                  />
+                </div>
+
+                {/* BOTTOM: distribution + mean/min/max */}
+                <div className="border-t border-slate-100 px-4 pb-4 pt-2">
+                  <Plot
+                    data={[
+                      {
+                        x: orderedGroupStats.map((g) => g.label),
+                        y: orderedGroupStats.map((g) => g.pct ?? 0),
+                        type: "bar" as const,
+                        name: "% of respondents",
+                        marker: {
+                          color: "#fee2e2",
+                          line: { color: "#b91c1c", width: 1 },
+                        },
+                        customdata: orderedGroupStats.map((g) => g.n ?? 0),
+                        hovertemplate:
+                          "<b>%{x}</b><br>Share: %{y:.1f}% (n=%{customdata})<extra></extra>",
+                      },
+                      {
+                        x: orderedGroupStats.map((g) => g.label),
+                        y: orderedGroupStats.map((g) =>
+                          ((g.mean ?? 1) - 1) * FAMILIARITY_SCALE
+                        ),
+                        type: "scatter" as const,
+                        mode: "lines+markers",
+                        name: "Avg familiarity (1–4)",
+                        yaxis: "y2",
+                        line: { color: "#b91c1c", width: 3 },
+                        marker: { color: "#b91c1c", size: 7 },
+                        error_y: {
+                          type: "data",
+                          symmetric: false,
+                          array: orderedGroupStats.map((g) =>
+                            Math.max(
+                              0,
+                              ((g.max ?? 1) - (g.mean ?? 1)) *
+                                FAMILIARITY_SCALE
+                            )
+                          ),
+                          arrayminus: orderedGroupStats.map((g) =>
+                            Math.max(
+                              0,
+                              ((g.mean ?? 1) - (g.min ?? 1)) *
+                                FAMILIARITY_SCALE
+                            )
+                          ),
+                          visible: true,
+                          thickness: 1.4,
+                          width: 5,
+                          color: "#b91c1c",
+                        },
+                        customdata: orderedGroupStats.map((g) => [
+                          g.mean ?? 0,
+                          g.min ?? 0,
+                          g.max ?? 0,
+                        ]),
+                        hovertemplate:
+                          "<b>%{x}</b>" +
+                          "<br>Mean: %{customdata[0]:.2f}" +
+                          "<br>Min: %{customdata[1]:.2f}" +
+                          "<br>Max: %{customdata[2]:.2f}<extra></extra>",
+                      },
+                    ]}
+                    layout={{
+                      title: {
+                        text: `Knowledge group distribution`,
+                        font: { size: barTitleSize },
+                        y: 1,
+                      },
+                      xaxis: {
+                        categoryorder: "array",
+                        categoryarray: canonicalKnowledgeOrder,
+                        tickfont: { size: radarTickFontSize },
+                      },
+                      yaxis: {
+                        title: { text: "% of respondents" },
+                        rangemode: "tozero",
+                        range: [0, 100],
+                        tickmode: "array",
+                        tickvals: [0, 20, 40, 60, 80, 100],
+                        ticktext: ["0", "20", "40", "60", "80", "100"],
+                        gridcolor: "#e2e8f0",
+                        zeroline: false,
+                      },
+                      yaxis2: {
+                        title: { text: "Avg familiarity (1–4)" },
+                        overlaying: "y",
+                        side: "right",
+                        range: [0, 100],
+                        showgrid: false,
+                        tickmode: "array",
+                        tickvals: [0, 20, 40, 60, 80, 100],
+                        ticktext: ["1", "1.6", "2.2", "2.8", "3.4", "4"],
+                      },
+                      legend: {
+                        orientation: "h",
+                        x: 0.5,
+                        xanchor: "center",
+                        y: -0.2,
+                        font: { size: 11 },
+                        bordercolor: "#e2e8f0",
+                        borderwidth: 1,
+                      },
+                      margin: { t: 50, l: 60, r: 60, b: 70 },
+                      paper_bgcolor: "rgba(0,0,0,0)",
+                      plot_bgcolor: "rgba(0,0,0,0)",
+                    }}
+                    style={{ width: "100%", height: "260px" }}
+                    config={{ displayModeBar: false }}
+                  />
+                </div>
+              </>
             )}
 
-            {chartType === "heatmap" && (
+            {chartFamily === "heatmap" && (
               <Plot
                 data={[
                   {
@@ -848,7 +1066,6 @@ const KnowledgeFunctionalityChart: React.FC<{
                     tickfont: { size: radarTickFontSize },
                   },
                   xaxis: { tickfont: { size: 11 } },
-                  // ADDED right margin + using 95% width in style below
                   margin: { t: 110, l: 135, r: 0, b: 110 },
                   paper_bgcolor: "rgba(0,0,0,0)",
                   plot_bgcolor: "rgba(0,0,0,0)",
@@ -859,23 +1076,31 @@ const KnowledgeFunctionalityChart: React.FC<{
               />
             )}
 
-            {chartType === "radar" && (
+            {chartFamily === "spider" && spiderMode === "area" && (
               <Plot
-                data={data.map((d, i) => {
-                  const radarColors: Record<string, string> = {
-                    "No knowledge": "#b91c1c",
-                    "Little knowledge": "#fa7112",
-                    "Good knowledge": "#fd9c49",
-                    "Expert knowledge": "#fac681",
-                  };
-                  const color =
-                    radarColors[d.knowledge_label] || "#b91c1c";
+                data={data.map((d: any, i: number) => {
+                  const color = radarColors[d.knowledge_label] || "#b91c1c";
+
+                  const n = d.n ?? 0;
+                  const pct = d.pct ?? 0;
+                  const mean = d.group_mean ?? 0;
+                  const min = d.group_min ?? 0;
+                  const max = d.group_max ?? 0;
+
+                  const legendName = [
+                    d.knowledge_label,
+                    `n=${n} · ${pct.toFixed(1)}%`,
+                    `μ=${mean.toFixed(2)} · min=${min.toFixed(
+                      2
+                    )} · max=${max.toFixed(2)}`,
+                  ].join("<br>");
+
                   return {
                     type: "scatterpolar" as const,
                     r: matrix[i].concat(matrix[i][0]),
                     theta: funcLabels.concat(funcLabels[0]),
                     fill: "toself",
-                    name: d.knowledge_label,
+                    name: legendName,
                     line: { color, width: 3 },
                     fillcolor: color + "40",
                     hovertemplate:
@@ -892,14 +1117,18 @@ const KnowledgeFunctionalityChart: React.FC<{
                   polar: {
                     bgcolor: "rgba(0,0,0,0)",
                     radialaxis: {
-                      visible: false,
-                      showline: false,
+                      visible: true,
+                      showline: true,
                       range: [0, 4],
                       gridcolor: "#f1f5f9",
                       gridwidth: 1.3,
                       tickfont: { color: "#475569", size: 11 },
                       tickangle: 0,
                       ticksuffix: " ",
+                      title: {
+                        text: "Application familiarity",
+                        font: { size: 11 },
+                      },
                     },
                     angularaxis: {
                       gridcolor: "#e2e8f0",
@@ -919,18 +1148,25 @@ const KnowledgeFunctionalityChart: React.FC<{
                   showlegend: true,
                   legend: {
                     title: {
-                      text: "AI Knowledge level",
-                      font: { color: "#334155", size: radarLegendSize },
+                      text:
+                        `AI Knowledge level (total n=${totalN})` +
+                        '<br><span style="font-size:11px">mean / min / max across applications</span>',
+                      font: { color: "#334155", size: radarLegendSize - 1 },
                     },
                     orientation: "v",
-                    y: 1,
-                    x: -0.04,
+                    y: 1.05,
+                    x: -0.12,
                     xanchor: "left",
-                    font: { color: "#334155", size: radarLegendSize },
+                    yanchor: "top",
+                    font: {
+                      color: "#334155",
+                      size: radarLegendSize - 2,
+                    },
+                    bgcolor: "rgba(255,255,255,0.9)",
                     bordercolor: "#e2e8f0",
                     borderwidth: 1,
                   },
-                  margin: { t: 90, l: 80, r: 40, b: 40 },
+                  margin: { t: 90, l: 20, r: 40, b: 40 },
                   paper_bgcolor: "rgba(0,0,0,0)",
                   plot_bgcolor: "rgba(0,0,0,0)",
                 }}
@@ -938,6 +1174,106 @@ const KnowledgeFunctionalityChart: React.FC<{
                 config={{ displayModeBar: false }}
               />
             )}
+
+            {chartFamily === "spider" && spiderMode === "bars" && (
+              <Plot
+                data={data.map((d: any, i: number) => {
+                  const color = radarColors[d.knowledge_label] || "#b91c1c";
+                  const rVals = matrix[i];
+
+                  const n   = d.n ?? 0;
+                  const pct = d.pct ?? 0;
+                  const mean = d.group_mean ?? 0;
+                  const min  = d.group_min ?? 0;
+                  const max  = d.group_max ?? 0;
+
+                  const legendName = [
+                    d.knowledge_label,
+                    `n=${n} · ${pct.toFixed(1)}%`,
+                    `μ=${mean.toFixed(2)} · min=${min.toFixed(2)} · max=${max.toFixed(2)}`
+                  ].join("<br>");
+
+                  return {
+                    type: "barpolar" as const,
+                    r: rVals,
+                    theta: funcLabels,
+                    name: legendName,
+                    marker: {
+                      color,
+                      line: { color: "#ffffff", width: 1 },
+                    },
+                    opacity: 0.95,
+                    hovertemplate:
+                      `<b>%{theta}</b><br>Knowledge Level: <b>${d.knowledge_label}</b>` +
+                      `<br>Avg Familiarity: %{r:.2f}<extra></extra>`,
+                  };
+                })}
+                layout={{
+                  title: {
+                    text: "Whats the knowledge within applications?",
+                    font: { size: barTitleSize, color: "#334155" },
+                    y: 0.96,
+                  },
+                  polar: {
+                    bgcolor: "rgba(0,0,0,0)",
+                    radialaxis: {
+                      // dynamic range based on stacked column sums
+                      range: [0, maxRadialValue],
+                      visible: false,
+                      showline: false,
+                      gridcolor: "#f1f5f9",
+                      gridwidth: 1.3,
+                      showticklabels: false,
+                      ticks: "",
+                      title: {
+                        text: "Application familiarity",
+                        font: { size: 11 },
+                      },
+                    },
+                    angularaxis: {
+                      gridcolor: "#e2e8f0",
+                      linecolor: "#cbd5e1",
+                      showline: true,
+                      linewidth: 1.5,
+                      tickfont: {
+                        color: "#334155",
+                        size: radarTickFontSize,
+                      },
+                      ticklen: 8,
+                      ticks: "",
+                      direction: "clockwise",
+                      rotation: 90,
+                    },
+                  },
+                  // stacked so the visual columns match the range logic
+                  barmode: "stack",
+                  showlegend: true,
+                  legend: {
+                    title: {
+                      text:
+                        `AI Knowledge level (total n=${totalN})` +
+                        '<br><span style="font-size:11px">mean / min / max across applications</span>',
+                      font: { color: "#334155", size: radarLegendSize - 1 },
+                    },
+                    orientation: "v",
+                    y: 1.05,
+                    x: -0.12,
+                    xanchor: "left",
+                    yanchor: "top",
+                    font: { color: "#334155", size: radarLegendSize - 2 },
+                    bgcolor: "rgba(255,255,255,0.9)",
+                    bordercolor: "#e2e8f0",
+                    borderwidth: 1,
+                  },
+                  margin: { t: 90, l: 20, r: 40, b: 40 },
+                  paper_bgcolor: "rgba(0,0,0,0)",
+                  plot_bgcolor: "rgba(0,0,0,0)",
+                }}
+                style={{ width: "100%", height: "100%" }}
+                config={{ displayModeBar: false }}
+              />
+            )}
+
           </>
         )}
       </div>

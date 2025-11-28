@@ -11,9 +11,9 @@ type Resp = {
 
 const rgba = (hex: string, a = 1) => {
   const s = hex.replace("#", "");
-  const r = parseInt(s.slice(0,2), 16);
-  const g = parseInt(s.slice(2,4), 16);
-  const b = parseInt(s.slice(4,6), 16);
+  const r = parseInt(s.slice(0, 2), 16);
+  const g = parseInt(s.slice(2, 4), 16);
+  const b = parseInt(s.slice(4, 6), 16);
   return `rgba(${r},${g},${b},${a})`;
 };
 
@@ -37,6 +37,9 @@ const TrainingReceivedSpider: React.FC<{
   const [loading, setLoading] = useState(false);
   const [noData, setNoData] = useState(false);
 
+  // spider variant toggle
+  const [spiderMode, setSpiderMode] = useState<"area" | "bars">("area");
+
   // filters
   const [gender, setGender] = useState<string>("All");
   const [experience, setExperience] = useState<string | null>(null);
@@ -45,7 +48,7 @@ const TrainingReceivedSpider: React.FC<{
   const winW = useWindowWidth();
   const lt740 = winW < 740;
   const titleSize = lt740 ? 16 : 20;
-  const tickSize  = lt740 ? 10 : 12;
+  const tickSize = lt740 ? 10 : 12;
 
   const tintBg = rgba(facultyColor, 0.06);
   const tintBorder = `1px solid ${rgba(facultyColor, 0.25)}`;
@@ -68,7 +71,8 @@ const TrainingReceivedSpider: React.FC<{
       .then((json: Resp) => {
         setData(json);
         const anyPos =
-          Array.isArray(json?.counts) && json.counts.some((v) => (v || 0) > 0);
+          Array.isArray(json?.counts) &&
+          json.counts.some((v) => (v || 0) > 0);
         setNoData(!anyPos);
       })
       .catch(() => {
@@ -78,20 +82,54 @@ const TrainingReceivedSpider: React.FC<{
       .finally(() => setLoading(false));
   }, [facultyName, gender, experience, profile]);
 
+  // radial max shared by area + bars
+  const radialMax = useMemo(() => {
+    if (!data || !data.counts || data.counts.length === 0) return 1;
+    const maxVal = Math.max(...data.counts);
+    if (!isFinite(maxVal) || maxVal <= 0) return 1;
+    return maxVal * 1.1;
+  }, [data]);
+
+  // close loop for area mode
   const rVals = useMemo(() => {
     if (!data) return [];
     const core = data.counts || [];
     return core.length ? core.concat(core[0]) : core;
   }, [data]);
 
-  const theta = useMemo(() => {
-      if (!data) return [];
-      const long = data.axis.map(s => data.long_map?.[s] ?? s);
-      return long.length ? long.concat(long[0]) : long;
-    }, [data]);
+  const thetaArea = useMemo(() => {
+    if (!data) return [];
+    const long = data.axis.map((s) => data.long_map?.[s] ?? s);
+    return long.length ? long.concat(long[0]) : long;
+  }, [data]);
 
+  const thetaBars = useMemo(() => {
+    if (!data) return [];
+    return data.axis.map((s) => data.long_map?.[s] ?? s);
+  }, [data]);
 
-  const share = (v: number, total: number) => (total > 0 ? (v * 100) / total : 0);
+  const share = (v: number, total: number) =>
+    total > 0 ? (v * 100) / total : 0;
+
+  // customdata for area: shares + closed loop
+  const customdataArea = useMemo(() => {
+    if (!data) return [];
+    const base = data.axis.map((_, i) =>
+      share(data.counts[i] || 0, data.total)
+    );
+    const first = data.counts.length
+      ? share(data.counts[0] || 0, data.total)
+      : 0;
+    return base.concat(first);
+  }, [data]);
+
+  // customdata for bars: just shares, one per axis
+  const customdataBars = useMemo(() => {
+    if (!data) return [];
+    return data.axis.map((_, i) =>
+      share(data.counts[i] || 0, data.total)
+    );
+  }, [data]);
 
   return (
     <div>
@@ -135,54 +173,92 @@ const TrainingReceivedSpider: React.FC<{
         </select>
       </div>
 
+      {/* Spider mode toggle – amber style */}
+      {!loading && data && !noData && (
+        <div className="flex justify-center mb-3">
+          <div className="inline-flex rounded-lg border border-slate-300 bg-white shadow-sm overflow-hidden">
+            <button
+              onClick={() => setSpiderMode("area")}
+              className={
+                "px-3 py-1.5 text-xs md:text-sm " +
+                (spiderMode === "area"
+                  ? "bg-amber-50 text-amber-700"
+                  : "text-slate-600 hover:bg-slate-50")
+              }
+            >
+              Spider (area)
+            </button>
+            <button
+              onClick={() => setSpiderMode("bars")}
+              className={
+                "px-3 py-1.5 text-xs md:text-sm border-l border-slate-300 " +
+                (spiderMode === "bars"
+                  ? "bg-amber-50 text-amber-700"
+                  : "text-slate-600 hover:bg-slate-50")
+              }
+            >
+              Spider (bars)
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="relative w-full h-[560px] rounded-xl border border-slate-200 bg-white overflow-hidden">
-        {loading && <div className="absolute inset-0 bg-slate-100 animate-pulse" />}
+        {loading && (
+          <div className="absolute inset-0 bg-slate-100 animate-pulse" />
+        )}
 
         {!loading && (noData || !data) && (
           <div
             className="absolute inset-0 flex items-center justify-center"
             style={{ background: tintBg, border: tintBorder }}
           >
-            <p style={{ color: facultyColor, fontWeight: 600, letterSpacing: ".2px" }}>
+            <p
+              style={{
+                color: facultyColor,
+                fontWeight: 600,
+                letterSpacing: ".2px",
+              }}
+            >
               No data for the selected filters.
             </p>
           </div>
         )}
 
-        {!loading && data && !noData && (
+        {/* AREA MODE (original behaviour) */}
+        {!loading && data && !noData && spiderMode === "area" && (
           <Plot
             data={[
               {
                 type: "scatterpolar" as const,
                 r: rVals,
-                theta: theta,
+                theta: thetaArea,
                 fill: "toself",
                 name: "Training sources (counts)",
                 line: { color: facultyColor, width: 3 },
                 fillcolor: rgba(facultyColor, 0.25),
-                customdata: data.axis.map((_, i) =>
-                  data ? share(data.counts[i] || 0, data.total) : 0
-                ).concat( data && data.counts.length ? share(data.counts[0] || 0, data.total) : 0 ),
+                customdata: customdataArea, // shares (closed loop)
                 hovertemplate:
                   `<b>%{theta}</b><br>` +
                   `Count: <b>%{r}</b> / ${data.total}<br>` +
-                  `Share: <b>%{customdata:.1f}%</b><br>` +
-                  `<i>${''}</i><extra></extra>`,
+                  `Share: <b>%{customdata:.1f}%</b><extra></extra>`,
               },
             ]}
             layout={{
               title: {
-                text: "Have you received any AI training for teaching or research?",
+                text:
+                  "Have you received any AI training for teaching or research?",
                 font: { size: titleSize, color: "#334155" },
                 y: 0.96,
               },
               polar: {
                 bgcolor: "rgba(0,0,0,0)",
                 radialaxis: {
-                  visible: false,
-                  range: [0, Math.max(1, ...(data.counts || [])) * 1.1],
+                  visible: true,
+                  range: [0, radialMax],
                   gridcolor: "#e2e8f0",
-                  showline: false,
+                  showline: true,
+                  title: { text: "Total count", font: { size: 11 } },
                 },
                 angularaxis: {
                   gridcolor: "#e2e8f0",
@@ -192,6 +268,71 @@ const TrainingReceivedSpider: React.FC<{
                   tickfont: { color: "#334155", size: tickSize },
                 },
               },
+              showlegend: false,
+              margin: { t: 90, l: 60, r: 40, b: 40 },
+              paper_bgcolor: "rgba(0,0,0,0)",
+              plot_bgcolor: "rgba(0,0,0,0)",
+            }}
+            style={{ width: "100%", height: "100%" }}
+            config={{ displayModeBar: false }}
+          />
+        )}
+
+        {/* BARS MODE (same range, numeric scale visible) */}
+        {!loading && data && !noData && spiderMode === "bars" && (
+          <Plot
+            data={[
+              {
+                type: "barpolar" as const,
+                r: data.counts,
+                theta: thetaBars,
+                name: "Training sources (counts)",
+                marker: {
+                  color: facultyColor,
+                  line: { color: "#ffffff", width: 1 },
+                },
+                opacity: 0.95,
+                customdata: customdataBars, // shares (no loop)
+                hovertemplate:
+                  `<b>%{theta}</b><br>` +
+                  `Count: <b>%{r}</b> / ${data.total}<br>` +
+                  `Share: <b>%{customdata:.1f}%</b><extra></extra>`,
+              },
+            ]}
+            layout={{
+              title: {
+                text:
+                  "Have you received any AI training for teaching or research?",
+                font: { size: titleSize, color: "#334155" },
+                y: 0.96,
+              },
+              polar: {
+                bgcolor: "rgba(0,0,0,0)",
+                radialaxis: {
+                  visible: true,
+                  showline: true,
+                  range: [0, radialMax],
+                  gridcolor: "#e2e8f0",
+                  gridwidth: 1.3,
+                  showticklabels: true,
+                  ticks: "",
+                  tickfont: { color: "#475569", size: 11 },
+                  title: {
+                    text: "Total count",
+                    font: { size: 11 },
+                  },
+                },
+                angularaxis: {
+                  gridcolor: "#e2e8f0",
+                  linecolor: "#cbd5e1",
+                  showline: true,
+                  linewidth: 1.3,
+                  tickfont: { color: "#334155", size: tickSize },
+                  ticklen: 8,
+                  ticks: "",
+                },
+              },
+              barmode: "group",
               showlegend: false,
               margin: { t: 90, l: 60, r: 40, b: 40 },
               paper_bgcolor: "rgba(0,0,0,0)",

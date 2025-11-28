@@ -726,10 +726,10 @@ def get_normative_distribution(faculty_name: str):
 
 @router.get("/faculty/{faculty_name}/knowledge-functionality-correlation")
 def get_knowledge_functionality_correlation(
-        faculty_name: str,
-        gender: Optional[str] = Query(None),
-        experience: Optional[str] = Query(None),
-        profile: Optional[str] = Query(None),
+    faculty_name: str,
+    gender: Optional[str] = Query(None),
+    experience: Optional[str] = Query(None),
+    profile: Optional[str] = Query(None),
 ):
     df = surveys_df[surveys_df["faculty_name"] == faculty_name].copy()
 
@@ -740,6 +740,10 @@ def get_knowledge_functionality_correlation(
         df = df[df["teaching_experience"] == experience]
     if profile:
         df = df[df["ub_profile"] == profile]
+
+    # If no data after filters: return empty list, frontend already handles this
+    if df.empty:
+        return []
 
     # 13 application columns (knowledge familiarity)
     app_cols = [
@@ -758,6 +762,7 @@ def get_knowledge_functionality_correlation(
         "ia_knowledge_inclusion_support",
     ]
 
+    # Map likert → numeric 1–4
     app_map = {
         "I don't know any": 1,
         "I know a few": 2,
@@ -768,17 +773,48 @@ def get_knowledge_functionality_correlation(
     for col in app_cols:
         df[col] = df[col].map(app_map)
 
-    grouped = (
-        df.groupby("ia_knowledge")[app_cols]
-        .mean()
-        .reset_index()
-    )
+    # Drop rows with missing global knowledge label
+    df = df.dropna(subset=["ia_knowledge"])
+    if df.empty:
+        return []
 
-    grouped.rename(columns={"ia_knowledge": "knowledge_label"}, inplace=True)
-    grouped = grouped.replace([float("inf"), float("-inf")], None).fillna(0)
+    total_n = len(df)
 
-    return grouped.to_dict(orient="records")
+    # Mean familiarity for each application within each global knowledge level
+    grouped_means = df.groupby("ia_knowledge")[app_cols].mean()
 
+    # Count respondents per global knowledge level
+    group_counts = df.groupby("ia_knowledge").size()
+
+    # Compute overall stats across the 13 applications per group
+    group_mean = grouped_means.mean(axis=1)
+    group_min = grouped_means.min(axis=1)
+    group_max = grouped_means.max(axis=1)
+    group_pct = (group_counts / float(total_n)) * 100.0 if total_n > 0 else 0.0
+
+    # Build result DataFrame
+    result_df = grouped_means.copy()
+    result_df["n"] = group_counts.astype(int)
+    result_df["pct"] = group_pct
+    result_df["group_mean"] = group_mean
+    result_df["group_min"] = group_min
+    result_df["group_max"] = group_max
+
+    # Move ia_knowledge to a proper column and rename to knowledge_label
+    result_df = result_df.reset_index().rename(columns={"ia_knowledge": "knowledge_label"})
+
+    # Ensure column order: label + 13 apps (for your frontend matrix) + stats
+    result_df = result_df[
+        ["knowledge_label"]
+        + app_cols
+        + ["n", "pct", "group_mean", "group_min", "group_max"]
+    ]
+
+    # Clean weird numeric values (NaN, inf) → 0
+    numeric_cols = app_cols + ["n", "pct", "group_mean", "group_min", "group_max"]
+    result_df[numeric_cols] = result_df[numeric_cols].replace([math.inf, -math.inf], 0).fillna(0)
+
+    return result_df.to_dict(orient="records")
 
 def truncate_colormap(cmap_name: str, minval=0.4, maxval=1.0, n=256):
     """
@@ -1051,11 +1087,21 @@ def get_uses_functionality_correlation(
 ):
     """
     Mirror of /knowledge-functionality-correlation but for usage frequency.
-    Bucket rows by global 'ia_uses' level (No use / Low use / ...).
-    For each bucket, compute mean usage frequency (1..4) for each task.
-    Return array of dicts:
+
+    For each global usage level (ia_uses), compute:
+      - mean usage (1..4) for each task
+      - n of respondents in that level
+      - pct within the faculty
+      - group_mean / group_min / group_max across all tasks
+
+    Returns one row per usage level:
       {
         "usage_label": "Low use",
+        "n": 12,
+        "pct": 30.0,
+        "group_mean": 2.10,
+        "group_min": 1.00,
+        "group_max": 3.40,
         "Text Creation": <float>,
         ...
       }
@@ -1069,6 +1115,10 @@ def get_uses_functionality_correlation(
         df = df[df["teaching_experience"] == experience]
     if profile:
         df = df[df["ub_profile"] == profile]
+
+    # If nothing left, bail early
+    if df.empty:
+        return []
 
     # task columns (do NOT include ia_proposes_students here)
     task_cols = [
@@ -1098,10 +1148,14 @@ def get_uses_functionality_correlation(
     for col in task_cols:
         df[col] = df[col].map(task_freq_to_1to4)
 
-    # Group by global usage label
-    grouped = df.groupby("ia_uses")[task_cols].mean().reset_index()
+    # Means per usage level
+    means = df.groupby("ia_uses")[task_cols].mean()
 
-    # nice display names for each task col
+    # Counts per usage level
+    n_by_group = df.groupby("ia_uses").size()
+    total_n = float(n_by_group.sum()) or 1.0
+
+    # Nice display names
     nice_names = {
         "ia_uses_text_creation": "Text Creation",
         "ia_uses_multimedia_creation": "Multimedia Creation",
@@ -1117,15 +1171,24 @@ def get_uses_functionality_correlation(
         "ia_uses_ai_experiments": "AI Experiments",
         "ia_uses_inclusion_support": "Inclusion Support",
     }
+    means = means.rename(columns=nice_names)
 
-    grouped = grouped.rename(columns=nice_names)
-    grouped = grouped.rename(columns={"ia_uses": "usage_label"})
-    grouped = grouped.replace([float("inf"), float("-inf")], None).fillna(0)
+    # Summary stats across tasks for each usage level
+    summary = pd.DataFrame(index=means.index)
+    summary["usage_label"] = summary.index
+    summary["n"] = n_by_group
+    summary["pct"] = (n_by_group / total_n * 100.0)
+    summary["group_mean"] = means.mean(axis=1)
+    summary["group_min"] = means.min(axis=1)
+    summary["group_max"] = means.max(axis=1)
 
-    # Return array[ { usage_label, "Text Creation": avg, ... }, ... ]
-    return grouped.to_dict(orient="records")
+    # Combine summary + per-task means
+    result_df = pd.concat([summary, means], axis=1).reset_index(drop=True)
 
+    # clean up NaN / inf
+    result_df = result_df.replace([float("inf"), float("-inf")], None).fillna(0)
 
+    return result_df.to_dict(orient="records")
 @router.get("/faculty/{faculty_name}/students-uses-by-proposal")
 def students_uses_by_proposal(
         faculty_name: str,
@@ -1134,15 +1197,19 @@ def students_uses_by_proposal(
         profile: Optional[str] = Query(None),
 ):
     """
-    Exactly like /uses-functionality-correlation but:
+    Like /uses-functionality-correlation but:
       - task columns are the *_student ones
       - groups are ia_proposes_students ∈ {"Never","Sometimes","Often","Very often"}
-      - each task is mapped to 1..4 (Never..Very often) and averaged per proposal bucket
-    Returns an array of records:
+
+    For each proposal bucket we return:
       {
         "proposal_label": "Never" | "Sometimes" | "Often" | "Very often",
-        "Text Creation": <float>,
-        "Multimedia Creation": <float>,
+        "n": <int>,                  # respondents in this bucket
+        "pct": <float>,              # share in %
+        "group_mean": <float>,       # mean across all tasks
+        "group_min": <float>,        # min across tasks
+        "group_max": <float>,        # max across tasks
+        "Text Creation": <float>,    # per-task averages (1..4)
         ...
       }
     """
@@ -1155,6 +1222,12 @@ def students_uses_by_proposal(
         df = df[df["teaching_experience"] == experience]
     if profile:
         df = df[df["ub_profile"] == profile]
+
+    if df.empty:
+        return []
+
+    if "ia_proposes_students" not in df.columns:
+        return []
 
     # --- students task columns (11) ---
     task_cols = [
@@ -1199,21 +1272,33 @@ def students_uses_by_proposal(
         if col in df.columns:
             df[col] = df[col].map(freq_to_1to4)
 
-    # Group by overall proposal frequency
-    if "ia_proposes_students" not in df.columns:
-        return []
+    # Means per proposal bucket
+    means = df.groupby("ia_proposes_students")[task_cols].mean(numeric_only=True)
 
-    grouped = df.groupby("ia_proposes_students")[task_cols].mean(numeric_only=True).reset_index()
+    # Counts per bucket
+    n_by_group = df.groupby("ia_proposes_students").size()
+    total_n = float(n_by_group.sum()) or 1.0
 
-    # rename columns for frontend
-    grouped = grouped.rename(columns=nice_names)
-    grouped = grouped.rename(columns={"ia_proposes_students": "proposal_label"})
+    # Summary stats across tasks for each proposal bucket
+    summary = pd.DataFrame(index=means.index)
+    summary["proposal_label"] = summary.index
+    summary["n"] = n_by_group
+    summary["pct"] = (n_by_group / total_n) * 100.0
+    summary["group_mean"] = means.mean(axis=1)
+    summary["group_min"] = means.min(axis=1)
+    summary["group_max"] = means.max(axis=1)
+
+    # Rename tasks for frontend
+    means = means.rename(columns=nice_names)
+
+    # Combine summary + per-task means
+    result_df = pd.concat([summary, means], axis=1).reset_index(drop=True)
 
     # sanitize numerics
-    grouped = grouped.replace([float("inf"), float("-inf")], None).fillna(0)
+    result_df = result_df.replace([float("inf"), float("-inf")], None).fillna(0)
 
     # return as list-of-records
-    return grouped.to_dict(orient="records")
+    return result_df.to_dict(orient="records")
 
 
 @router.get("/faculty/{faculty_name}/uses-applications-wordcloud-svg")

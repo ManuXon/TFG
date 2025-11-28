@@ -167,7 +167,7 @@ const TrainingInterestPie: React.FC<{
             ]}
             layout={{
               title: {
-                text: "Interest in learning more about AI (teaching & research)",
+                text: "Interest in learning more about AI (teaching/research)",
                 font: { size: pieTitleSize, color: "#334155" },
                 xref: "paper",
                 x: 0.0,
