@@ -25,7 +25,6 @@ import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-
 try {
   // @ts-ignore
   const MapboxWorker = require("mapbox-gl/dist/mapbox-gl-csp-worker").default;
@@ -53,7 +52,6 @@ interface Faculty {
   perceptions_score?: number;
   training_needs_score?: number;
   short_name?: string;
-
   n_responses?: number;
 }
 
@@ -63,6 +61,7 @@ type CameraState = {
   pitch: number;
   bearing: number;
 };
+
 const HIDE_DELAY = 100;
 const CAMERA_KEY = "ub-map-camera";
 const DEFAULT_CAMERA: CameraState = {
@@ -78,6 +77,10 @@ const METRICS: { key: MetricKey; label: string }[] = [
   { key: "perceptions_score", label: "Perceptions" },
   { key: "training_needs_score", label: "Training Needs" },
 ];
+
+type MapMode = "3d" | "2d";
+type MapViz2D = "spikes" | "heatmap";
+type MapStyle2D = "light" | "dark";
 
 const clamp01 = (n: number) => Math.max(0, Math.min(100, n || 0));
 
@@ -144,22 +147,22 @@ const ScoreIndicator: React.FC<{ score: number }> = ({ score }) => {
 /** ---------- Icon mapping (English canonical names) ---------- */
 const iconMap = {
   "Fine Arts": Palette,
-  "Biology": Microscope,
+  Biology: Microscope,
   "Earth Sciences": Globe,
-  "Law": Scale,
+  Law: Scale,
   "Economics and Business": TrendingUp,
-  "Education": BookOpen,
-  "Pharmacy": Pill,
-  "Philology": MessageSquare,
-  "Philosophy": Brain,
-  "Physics": Atom,
+  Education: BookOpen,
+  Pharmacy: Pill,
+  Philology: MessageSquare,
+  Philosophy: Brain,
+  Physics: Atom,
   "Geography and History": Map,
   "Audiovisual Media": Video,
-  "Nursing": Heart,
+  Nursing: Heart,
   "Maths and CS": Calculator,
-  "Medicine": Stethoscope,
-  "Psychology": Users,
-  "Chemistry": FlaskConical,
+  Medicine: Stethoscope,
+  Psychology: Users,
+  Chemistry: FlaskConical,
 } as const;
 
 type IconKey = keyof typeof iconMap;
@@ -197,199 +200,34 @@ const hexToRgba = (hex: string, alpha: number) => {
   }
 };
 
+const MAPBOX_STYLE_3D = "mapbox://styles/manu-ub/cm3t8g34e002t01qu714v03tj";
+const MAPBOX_STYLES_2D: Record<MapStyle2D, string> = {
+  light: "mapbox://styles/mapbox/light-v11",
+  dark: "mapbox://styles/mapbox/dark-v11",
+};
+
 const MapboxDashboard: React.FC = () => {
-   // ---------- mini tooltip component ----------
-  const TooltipContent: React.FC<{
-    faculty: {
-      faculty_name: string;
-      color: string;
-      n_responses?: number;
-      knowledge_score?: number;
-      uses_score?: number;
-      perceptions_score?: number;
-      training_needs_score?: number;
-    };
-    maxResponses: number;
-  }> = ({ faculty, maxResponses }) => {
-    const {
-      faculty_name,
-      color,
-      knowledge_score = 0,
-      uses_score = 0,
-      perceptions_score = 0,
-      training_needs_score = 0,
-      n_responses = 0,
-    } = faculty;
+  // ---- map mode + 2D viz type + 2D style ----
+  const [mapMode, setMapMode] = useState<MapMode>("3d");
+  const [mapViz2D, setMapViz2D] = useState<MapViz2D>("spikes");
+  const [mapStyle2D, setMapStyle2D] = useState<MapStyle2D>("light");
 
-    const Icon = pickIconComponent(faculty_name);
+  // keep latest 2D viz in a ref so style-change effect doesn't depend on it
+  const mapViz2DRef = useRef<MapViz2D>("spikes");
+  useEffect(() => {
+    mapViz2DRef.current = mapViz2D;
+  }, [mapViz2D]);
 
-    // normalize participant count to 0–100 using the biggest faculty
-    const participantsPct =
-      maxResponses > 0 ? (n_responses / maxResponses) * 100 : 0;
-
-    // bars(short labels)
-    const bars = [
-      {
-        key: "Resp",
-        value: participantsPct,
-        raw: n_responses,
-        color: color,
-        textColor: color,
-      },
-      {
-        key: "Know",
-        value: knowledge_score,
-        raw: knowledge_score,
-        color: "#b91c1c",
-        textColor: "#b91c1c",
-      },
-      {
-        key: "Uses",
-        value: uses_score,
-        raw: uses_score,
-        color: "#6b21a8",
-        textColor: "#6b21a8",
-      },
-      {
-        key: "Perc",
-        value: perceptions_score,
-        raw: perceptions_score,
-        color: "#15803d",
-        textColor: "#15803d",
-      },
-      {
-        key: "Train",
-        value: training_needs_score,
-        raw: training_needs_score,
-        color: "#b45309",
-        textColor: "#b45309",
-      },
-    ];
-
-    // tiny SVG layout numbers
-    const W = 185;
-    const H = 90;
-    const chartTop = 10;
-    const chartBottom = 73;
-    const chartHeight = chartBottom - chartTop;
-    const barWidth = 20;
-    const gap = 10;
-    const startX = 10;
-
-    return (
-      <div
-        className="text-[11px] text-slate-700"
-        style={{ minWidth: W + "px", maxWidth: W + "px" }}
-      >
-        {/* header row */}
-        <div className="flex items-center gap-2 mb-2">
-          <span
-            className="inline-flex items-center justify-center rounded-md p-1 shadow-sm"
-            style={{
-              backgroundColor: `${color}22`,
-              color: color,
-              border: `1px solid ${color}44`,
-            }}
-          >
-            <Icon className="w-4 h-4" />
-          </span>
-          <span className="font-semibold text-slate-900 text-[12px] leading-none">
-            {faculty_name}
-          </span>
-        </div>
-
-        {/* bar chart */}
-        <svg
-          width={W}
-          height={H}
-          style={{ display: "block" }}
-          aria-label="faculty quick metrics"
-        >
-          {/* grid lines @25/50/75/100 */}
-          {[25, 50, 75, 100].map((tick) => {
-            const y = chartBottom - (tick / 100) * chartHeight;
-            return (
-              <g key={tick}>
-                <line
-                  x1={0}
-                  x2={W}
-                  y1={y}
-                  y2={y}
-                  stroke="#e5e7eb"
-                  strokeWidth={tick === 100 ? 1.5 : 1}
-                  strokeDasharray={tick === 100 ? "0" : "2,2"}
-                />
-                <text
-                  x={W - 4}
-                  y={y - 2}
-                  textAnchor="end"
-                  className="fill-slate-400 text-[9px]"
-                >
-                  {tick}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* the bars */}
-          {bars.map((b, i) => {
-            const v = Math.max(0, Math.min(100, b.value || 0));
-            const barH = (v / 100) * chartHeight;
-            const x = startX + i * (barWidth + gap);
-            const y = chartBottom - barH;
-
-            return (
-              <g key={b.key}>
-                <rect
-                  x={x}
-                  y={y}
-                  width={barWidth}
-                  height={barH}
-                  rx={3}
-                  ry={3}
-                  fill={b.color}
-                  stroke="#ffffff"
-                  strokeWidth={0.5}
-                />
-                {/* numeric label above bar */}
-                <text
-                  x={x + barWidth / 2}
-                  y={y - 4}
-                  textAnchor="middle"
-                  className="text-[9px] font-semibold"
-                  style={{ fill: b.textColor }}
-                >
-                  {b.key === "Resp"
-                    ? b.raw
-                    : Math.round(b.raw ?? 0)}
-                </text>
-
-                {/* short label under bar */}
-                <text
-                  x={x + barWidth / 2}
-                  y={chartBottom + 10}
-                  textAnchor="middle"
-                  className="fill-slate-600 text-[9px]"
-                >
-                  {b.key}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-
-        <div className="text-[9px] text-slate-400 text-right mt-1">
-          Responses normalized to 100.
-        </div>
-      </div>
-    );
-  };
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
 
-  // lifecycle guards for safe resize
+  // track last style URL to avoid redundant setStyle
+  const lastStyleRef = useRef<string | null>(null);
+
+  // lifecycle guards for safe resize / style update
   const mapAliveRef = useRef(false);
   const mapLoadedRef = useRef(false);
+
   const safeResize = useCallback((from: string) => {
     const m = mapRef.current;
     if (!m || !mapAliveRef.current || !mapLoadedRef.current) return;
@@ -403,17 +241,15 @@ const MapboxDashboard: React.FC = () => {
   // active DOM markers
   const markersRef = useRef<MarkerHandle[]>([]);
 
-  // ---------- CUSTOM TOOLTIP OVERLAY (no Mapbox Popup) ----------
+  // ---------- CUSTOM TOOLTIP OVERLAY ----------
   const tooltipElRef = useRef<HTMLDivElement | null>(null);
   const tooltipRootRef = useRef<Root | null>(null);
   const tooltipVisibleRef = useRef(false);
   const tooltipLngLatRef = useRef<[number, number] | null>(null);
 
-  // TRACK HOVER STATE
   const overTriggerRef = useRef(false);
   const overPopupRef = useRef(false);
 
-  // hide debounce
   const hideTimerRef = useRef<number | null>(null);
   const clearHideTimer = useCallback(() => {
     if (hideTimerRef.current !== null) {
@@ -480,7 +316,8 @@ const MapboxDashboard: React.FC = () => {
   );
 
   const positionTooltip = useCallback((map: mapboxgl.Map) => {
-    if (!tooltipVisibleRef.current || !tooltipElRef.current || !tooltipLngLatRef.current) return;
+    if (!tooltipVisibleRef.current || !tooltipElRef.current || !tooltipLngLatRef.current)
+      return;
     const p = map.project(tooltipLngLatRef.current);
     tooltipElRef.current.style.left = `${p.x}px`;
     tooltipElRef.current.style.top = `${p.y - 8}px`;
@@ -502,12 +339,10 @@ const MapboxDashboard: React.FC = () => {
     onRenderRef.current = null;
   }, []);
 
-  const showTooltip = useCallback(
-  (
-    map: mapboxgl.Map,
-    lng: number,
-    lat: number,
-    facultyInfo: {
+  const maxResponsesRef = useRef<number>(0);
+
+  const TooltipContent: React.FC<{
+    faculty: {
       faculty_name: string;
       color: string;
       n_responses?: number;
@@ -515,28 +350,201 @@ const MapboxDashboard: React.FC = () => {
       uses_score?: number;
       perceptions_score?: number;
       training_needs_score?: number;
-    }
-  ) => {
-    clearHideTimer();
+    };
+    maxResponses: number;
+  }> = ({ faculty, maxResponses }) => {
+    const {
+      faculty_name,
+      color,
+      knowledge_score = 0,
+      uses_score = 0,
+      perceptions_score = 0,
+      training_needs_score = 0,
+      n_responses = 0,
+    } = faculty;
 
-    const el = ensureTooltipEl(map);
-    tooltipLngLatRef.current = [lng, lat];
+    const Icon = pickIconComponent(faculty_name);
 
-    tooltipRootRef.current?.render(
-      <TooltipContent
-        faculty={facultyInfo}
-        maxResponses={maxResponsesRef.current}
-      />
+    const participantsPct = maxResponses > 0 ? (n_responses / maxResponses) * 100 : 0;
+
+    const bars = [
+      {
+        key: "Resp",
+        value: participantsPct,
+        raw: n_responses,
+        color: color,
+        textColor: color,
+      },
+      {
+        key: "Know",
+        value: knowledge_score,
+        raw: knowledge_score,
+        color: "#b91c1c",
+        textColor: "#b91c1c",
+      },
+      {
+        key: "Uses",
+        value: uses_score,
+        raw: uses_score,
+        color: "#6b21a8",
+        textColor: "#6b21a8",
+      },
+      {
+        key: "Perc",
+        value: perceptions_score,
+        raw: perceptions_score,
+        color: "#15803d",
+        textColor: "#15803d",
+      },
+      {
+        key: "Train",
+        value: training_needs_score,
+        raw: training_needs_score,
+        color: "#b45309",
+        textColor: "#b45309",
+      },
+    ];
+
+    const W = 185;
+    const H = 90;
+    const chartTop = 10;
+    const chartBottom = 73;
+    const chartHeight = chartBottom - chartTop;
+    const barWidth = 20;
+    const gap = 10;
+    const startX = 10;
+
+    return (
+      <div
+        className="text-[11px] text-slate-700"
+        style={{ minWidth: W + "px", maxWidth: W + "px" }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <span
+            className="inline-flex items-center justify-center rounded-md p-1 shadow-sm"
+            style={{
+              backgroundColor: `${color}22`,
+              color: color,
+              border: `1px solid ${color}44`,
+            }}
+          >
+            <Icon className="w-4 h-4" />
+          </span>
+          <span className="font-semibold text-slate-900 text-[12px] leading-none">
+            {faculty_name}
+          </span>
+        </div>
+
+        <svg
+          width={W}
+          height={H}
+          style={{ display: "block" }}
+          aria-label="faculty quick metrics"
+        >
+          {[25, 50, 75, 100].map((tick) => {
+            const y = chartBottom - (tick / 100) * chartHeight;
+            return (
+              <g key={tick}>
+                <line
+                  x1={0}
+                  x2={W}
+                  y1={y}
+                  y2={y}
+                  stroke="#e5e7eb"
+                  strokeWidth={tick === 100 ? 1.5 : 1}
+                  strokeDasharray={tick === 100 ? "0" : "2,2"}
+                />
+                <text
+                  x={W - 4}
+                  y={y - 2}
+                  textAnchor="end"
+                  className="fill-slate-400 text-[9px]"
+                >
+                  {tick}
+                </text>
+              </g>
+            );
+          })}
+
+          {bars.map((b, i) => {
+            const v = Math.max(0, Math.min(100, b.value || 0));
+            const barH = (v / 100) * chartHeight;
+            const x = startX + i * (barWidth + gap);
+            const y = chartBottom - barH;
+
+            return (
+              <g key={b.key}>
+                <rect
+                  x={x}
+                  y={y}
+                  width={barWidth}
+                  height={barH}
+                  rx={3}
+                  ry={3}
+                  fill={b.color}
+                  stroke="#ffffff"
+                  strokeWidth={0.5}
+                />
+                <text
+                  x={x + barWidth / 2}
+                  y={y - 4}
+                  textAnchor="middle"
+                  className="text-[9px] font-semibold"
+                  style={{ fill: b.textColor }}
+                >
+                  {b.key === "Resp" ? b.raw : Math.round(b.raw ?? 0)}
+                </text>
+                <text
+                  x={x + barWidth / 2}
+                  y={chartBottom + 10}
+                  textAnchor="middle"
+                  className="fill-slate-600 text-[9px]"
+                >
+                  {b.key}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+
+        <div className="text-[9px] text-slate-400 text-right mt-1">
+          Responses normalized to 100.
+        </div>
+      </div>
     );
+  };
 
-    el.style.display = "block";
-    tooltipVisibleRef.current = true;
-    positionTooltip(map);
-    attachRender(map);
-  },
-  [ensureTooltipEl, positionTooltip, attachRender, clearHideTimer]
-);
+  const showTooltip = useCallback(
+    (
+      map: mapboxgl.Map,
+      lng: number,
+      lat: number,
+      facultyInfo: {
+        faculty_name: string;
+        color: string;
+        n_responses?: number;
+        knowledge_score?: number;
+        uses_score?: number;
+        perceptions_score?: number;
+        training_needs_score?: number;
+      }
+    ) => {
+      clearHideTimer();
 
+      const el = ensureTooltipEl(map);
+      tooltipLngLatRef.current = [lng, lat];
+
+      tooltipRootRef.current?.render(
+        <TooltipContent faculty={facultyInfo} maxResponses={maxResponsesRef.current} />
+      );
+
+      el.style.display = "block";
+      tooltipVisibleRef.current = true;
+      positionTooltip(map);
+      attachRender(map);
+    },
+    [ensureTooltipEl, positionTooltip, attachRender, clearHideTimer]
+  );
 
   // camera memory
   const cameraRef = useRef<CameraState>(loadCamera() || DEFAULT_CAMERA);
@@ -548,12 +556,13 @@ const MapboxDashboard: React.FC = () => {
   const [selectedProfile, setSelectedProfile] = useState("");
   const [facultyData, setFacultyData] = useState<Faculty[]>([]);
   const [selectedFaculties, setSelectedFaculties] = useState<string[]>([]);
+
   const visibleSelected = selectedFaculties.filter((name) => {
     const f = facultyData.find((d) => d.faculty_name === name);
     return !!f && Number.isFinite(f?.category_score);
   });
-   // largest n_responses across current facultyData (used to scale "Resp" bar 0-100)
-  const maxResponsesRef = useRef<number>(0);
+
+  // max n_responses for tooltip scaling
   useEffect(() => {
     let maxR = 0;
     facultyData.forEach((f) => {
@@ -563,7 +572,6 @@ const MapboxDashboard: React.FC = () => {
     maxResponsesRef.current = maxR;
   }, [facultyData]);
 
-  // All faculties currently loadable/selectable (finite score), alphabetically
   const allSelectable = useMemo(
     () =>
       facultyData
@@ -574,19 +582,17 @@ const MapboxDashboard: React.FC = () => {
   );
 
   const handleSelectAll = useCallback(() => {
-    setSelectedFaculties(allSelectable); // replace with full set
+    setSelectedFaculties(allSelectable);
   }, [allSelectable]);
 
   const handleClearAll = useCallback(() => {
-    setSelectedFaculties([]); // empty selection
+    setSelectedFaculties([]);
   }, []);
 
-  // Shorten display name for the chart list (only)
   const shortenFacultyLabel = useCallback((n: string) => {
     return n === "Economics and Business" ? "Economics" : n;
   }, []);
 
-  // Build and sort data for the bar chart
   const comparisonData = useMemo(
     () =>
       visibleSelected
@@ -603,7 +609,6 @@ const MapboxDashboard: React.FC = () => {
     [visibleSelected, facultyData, shortenFacultyLabel]
   );
 
-  // Build series for the radar chart
   const radarSeries = useMemo(() => {
     return visibleSelected
       .map((name) => {
@@ -628,52 +633,47 @@ const MapboxDashboard: React.FC = () => {
   const [mapVisible, setMapVisible] = useState(false);
   const [sourcesReady, setSourcesReady] = useState(false);
 
-  /** ---------- Build/push GeoJSON for spikes ---------- */
+  /** ---------- Build/push GeoJSON for spikes / heatmap ---------- */
   const buildGeoJSON = useCallback((rows: Faculty[]) => {
-  const d = 0.0003;
-  const features = rows
-    .map((f) => {
-      const lon = Number(f.longitude);
-      const lat = Number(f.latitude);
-      if (!isFinite(lon) || !isFinite(lat)) return null;
-      return {
-        type: "Feature",
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [lon - d, lat - d],
-              [lon + d, lat - d],
-              [lon + d, lat + d],
-              [lon - d, lat + d],
-              [lon - d, lat - d],
+    const d = 0.0003;
+    const features = rows
+      .map((f) => {
+        const lon = Number(f.longitude);
+        const lat = Number(f.latitude);
+        if (!isFinite(lon) || !isFinite(lat)) return null;
+        return {
+          type: "Feature",
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [lon - d, lat - d],
+                [lon + d, lat - d],
+                [lon + d, lat + d],
+                [lon - d, lat + d],
+                [lon - d, lat - d],
+              ],
             ],
-          ],
-        },
-        properties: {
-          faculty_name: f.faculty_name,
-          centerLon: lon,
-          centerLat: lat,
+          },
+          properties: {
+            faculty_name: f.faculty_name,
+            centerLon: lon,
+            centerLat: lat,
+            color: f.color || "#888",
+            n_responses: f.n_responses ?? 0,
+            knowledge_score: f.knowledge_score ?? 0,
+            uses_score: f.uses_score ?? 0,
+            perceptions_score: f.perceptions_score ?? 0,
+            training_needs_score: f.training_needs_score ?? 0,
+            score: isFinite(f.category_score) ? f.category_score : 0,
+            height: (isFinite(f.category_score) ? f.category_score : 0) * 4.2,
+          },
+        };
+      })
+      .filter(Boolean) as any[];
 
-          // for tooltip and bars
-          color: f.color || "#888",
-          n_responses: f.n_responses ?? 0,
-          knowledge_score: f.knowledge_score ?? 0,
-          uses_score: f.uses_score ?? 0,
-          perceptions_score: f.perceptions_score ?? 0,
-          training_needs_score: f.training_needs_score ?? 0,
-
-          // for extrusion
-          score: isFinite(f.category_score) ? f.category_score : 0,
-          height: (isFinite(f.category_score) ? f.category_score : 0) * 4.2,
-        },
-      };
-    })
-    .filter(Boolean) as any[];
-
-  return { type: "FeatureCollection", features } as any;
-}, []);
-
+    return { type: "FeatureCollection", features } as any;
+  }, []);
 
   const pushFaculties = useCallback(
     (map: mapboxgl.Map, rows: Faculty[]) => {
@@ -693,7 +693,8 @@ const MapboxDashboard: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       const params = new URLSearchParams();
-      if (selectedCategory && selectedCategory !== "All") params.append("category", selectedCategory);
+      if (selectedCategory && selectedCategory !== "All")
+        params.append("category", selectedCategory);
       if (selectedGender) params.append("gender", selectedGender);
       if (selectedExperience) params.append("teaching_experience", selectedExperience);
       if (selectedProfile) params.append("ub_profile", selectedProfile);
@@ -712,7 +713,7 @@ const MapboxDashboard: React.FC = () => {
     fetchData();
   }, [selectedCategory, selectedGender, selectedExperience, selectedProfile]);
 
-  /** ---------- Ensure source + spike layer exist ---------- */
+  /** ---------- Ensure source + spike / heatmap layers exist ---------- */
   const ensureFacultiesArtifacts = useCallback(
     (map: mapboxgl.Map) => {
       try {
@@ -724,6 +725,8 @@ const MapboxDashboard: React.FC = () => {
           });
           sourceWasAdded = true;
         }
+
+        // extruded spikes
         if (!map.getLayer("faculties-layer")) {
           map.addLayer({
             id: "faculties-layer",
@@ -735,27 +738,118 @@ const MapboxDashboard: React.FC = () => {
               "fill-extrusion-base": 0,
               "fill-extrusion-opacity": 0.9,
             },
+            layout: {
+              visibility: "visible",
+            },
+          });
+        }
+
+        // heatmap
+        if (!map.getLayer("faculties-heatmap")) {
+          map.addLayer({
+            id: "faculties-heatmap",
+            type: "heatmap",
+            source: "faculties",
+            paint: {
+              "heatmap-weight": [
+                "interpolate",
+                ["linear"],
+                ["get", "score"],
+                0,
+                0,
+                100,
+                1,
+              ],
+              "heatmap-intensity": 1,
+              "heatmap-radius": 40,
+              "heatmap-opacity": 0.8,
+            },
+            layout: {
+              visibility: "none",
+            },
           });
         }
 
         setSourcesReady(true);
         if (sourceWasAdded && facultyData.length) pushFaculties(map, facultyData);
       } catch (e) {
-        console.warn("ensureFacultiesArtifacts failed (will retry on next style/load):", e);
+        console.warn("ensureFacultiesArtifacts failed:", e);
       }
     },
     [pushFaculties, facultyData]
   );
 
-  /** ---------- DOM markers with Lucide icons (click + hover enabled) ---------- */
+  // ---- apply map mode + 2D viz visibility + camera presets ----
+  const applyMapModeAndViz = useCallback(
+    (map: mapboxgl.Map, mode: MapMode, viz: MapViz2D) => {
+      // terrain only in 3D mode
+      if (mode === "3d") {
+        try {
+          if (!map.getSource("mapbox-dem")) {
+            map.addSource("mapbox-dem", {
+              type: "raster-dem",
+              url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+              tileSize: 512,
+              maxzoom: 14,
+            });
+          }
+        } catch {}
+        try {
+          map.setTerrain({ source: "mapbox-dem", exaggeration: 1.3 });
+        } catch {}
+      } else {
+        try {
+          map.setTerrain(null);
+        } catch {}
+      }
+
+      const setVis = (id: string, visible: boolean) => {
+        if (!map.getLayer(id)) return;
+        try {
+          map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+        } catch {}
+      };
+
+      const showSpikesLayer = mode === "3d" || (mode === "2d" && viz === "spikes");
+
+      setVis("faculties-layer", showSpikesLayer);
+      setVis("faculties-heatmap", mode === "2d" && viz === "heatmap");
+
+      // camera presets:
+      if (viz === "heatmap" && mode === "2d") {
+        // zoom out, top-down
+        map.easeTo({
+          center: DEFAULT_CAMERA.center,
+          zoom: 12.5,
+          pitch: 0,
+          bearing: 0,
+          duration: 600,
+        });
+      } else {
+        // spikes in 3D or 2D → go to default 3D-ish view
+        map.easeTo({
+          center: DEFAULT_CAMERA.center,
+          zoom: DEFAULT_CAMERA.zoom,
+          pitch: DEFAULT_CAMERA.pitch,
+          bearing: DEFAULT_CAMERA.bearing,
+          duration: 600,
+        });
+      }
+    },
+    []
+  );
+
+  /** ---------- DOM markers with Lucide icons ---------- */
   const rebuildMarkers = useCallback(
-    (map: mapboxgl.Map, rows: Faculty[]) => {
-      // clear
+    (map: mapboxgl.Map, rows: Faculty[], showMarkers: boolean) => {
+      // clear existing
       markersRef.current.forEach(({ marker, root }) => {
         marker.remove();
         root.unmount();
       });
       markersRef.current = [];
+
+      if (!showMarkers) return;
 
       rows.forEach((f) => {
         const lon = Number(f.longitude);
@@ -846,7 +940,7 @@ const MapboxDashboard: React.FC = () => {
         markersRef.current.push({ marker, root });
       });
     },
-    [clearHideTimer, scheduleHideTooltip, showTooltip, setSelectedFaculties]
+    [clearHideTimer, scheduleHideTooltip, showTooltip]
   );
 
   /** ---------- Apply saved camera ---------- */
@@ -866,9 +960,12 @@ const MapboxDashboard: React.FC = () => {
 
     const initialCam = cameraRef.current;
 
+    const initialStyle =
+      mapMode === "3d" ? MAPBOX_STYLE_3D : MAPBOX_STYLES_2D[mapStyle2D];
+
     const map = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/manu-ub/cm3t8g34e002t01qu714v03tj",
+      style: initialStyle,
       center: initialCam.center,
       zoom: initialCam.zoom,
       pitch: initialCam.pitch,
@@ -879,6 +976,7 @@ const MapboxDashboard: React.FC = () => {
     mapRef.current = map;
     mapAliveRef.current = true;
     mapLoadedRef.current = false;
+    lastStyleRef.current = initialStyle;
 
     map.on("moveend", () => {
       const next: CameraState = {
@@ -888,13 +986,14 @@ const MapboxDashboard: React.FC = () => {
         bearing: map.getBearing(),
       };
       cameraRef.current = next;
-      console.log(cameraRef.current)
       saveCamera(next);
     });
 
     map.on("style.load", () => {
       applyCamera(map);
       ensureFacultiesArtifacts(map);
+      // initial mode/viz
+      applyMapModeAndViz(map, mapMode, mapViz2DRef.current);
     });
 
     map.on("load", () => {
@@ -913,7 +1012,9 @@ const MapboxDashboard: React.FC = () => {
         } catch {}
       }
       try {
-        map.setTerrain({ source: "mapbox-dem", exaggeration: 1.3 });
+        if (mapMode === "3d") {
+          map.setTerrain({ source: "mapbox-dem", exaggeration: 1.3 });
+        }
       } catch {}
 
       if (!map.getLayer("sky")) {
@@ -932,10 +1033,10 @@ const MapboxDashboard: React.FC = () => {
 
       ensureFacultiesArtifacts(map);
 
-      // SPIKE interactions
-      // --- Robust hover/select for spikes via queryRenderedFeatures ---
+      const queryLayers = ["faculties-layer", "faculties-heatmap"];
+
       map.on("mousemove", (e) => {
-        const feats = map.queryRenderedFeatures(e.point, { layers: ["faculties-layer"] });
+        const feats = map.queryRenderedFeatures(e.point, { layers: queryLayers });
         if (!feats.length) {
           map.getCanvas().style.cursor = "";
           overTriggerRef.current = false;
@@ -965,9 +1066,8 @@ const MapboxDashboard: React.FC = () => {
         showTooltip(map, lng, lat, facultyInfoForTip);
       });
 
-
       map.on("click", (e) => {
-        const feats = map.queryRenderedFeatures(e.point, { layers: ["faculties-layer"] });
+        const feats = map.queryRenderedFeatures(e.point, { layers: queryLayers });
         if (!feats.length) return;
 
         const f = feats[0];
@@ -998,9 +1098,6 @@ const MapboxDashboard: React.FC = () => {
         }
       });
 
-
-
-
       map.once("idle", () => {
         setMapVisible(true);
         safeResize("idle");
@@ -1023,14 +1120,12 @@ const MapboxDashboard: React.FC = () => {
       window.clearTimeout(fallback);
       ro.disconnect();
 
-      // markers cleanup
       markersRef.current.forEach(({ marker, root }) => {
         marker.remove();
         root.unmount();
       });
       markersRef.current = [];
 
-      // tooltip cleanup
       clearHideTimer();
       overTriggerRef.current = false;
       overPopupRef.current = false;
@@ -1056,30 +1151,83 @@ const MapboxDashboard: React.FC = () => {
     clearHideTimer,
     scheduleHideTooltip,
     detachRender,
+    applyMapModeAndViz,
+    mapMode,
+    mapStyle2D,
   ]);
 
-  /** ---------- Update spikes ---------- */
+  // when mapMode or 2D viz type changes, just update layers & camera
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoadedRef.current) return;
+    applyMapModeAndViz(map, mapMode, mapViz2D);
+  }, [mapMode, mapViz2D, applyMapModeAndViz]);
+
+  // when basemap style changes (light/dark in 2D)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapAliveRef.current) return;
+
+    const targetStyle =
+      mapMode === "3d" ? MAPBOX_STYLE_3D : MAPBOX_STYLES_2D[mapStyle2D];
+
+    if (lastStyleRef.current === targetStyle) return;
+    lastStyleRef.current = targetStyle;
+
+    map.setStyle(targetStyle);
+
+    const onStyleLoad = () => {
+      // re-create sources/layers
+      ensureFacultiesArtifacts(map);
+      if (facultyData.length) pushFaculties(map, facultyData);
+
+      // restore spikes/heatmap visibility + camera
+      applyMapModeAndViz(map, mapMode, mapViz2DRef.current);
+      // markers will be rebuilt by the separate effect that depends on mapStyle2D
+    };
+
+    map.once("style.load", onStyleLoad);
+
+    return () => {
+      map.off("style.load", onStyleLoad);
+    };
+  }, [
+    mapMode,
+    mapStyle2D,
+    ensureFacultiesArtifacts,
+    facultyData,
+    pushFaculties,
+    applyMapModeAndViz,
+  ]);
+
+  /** ---------- Update spikes/heatmap data ---------- */
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !sourcesReady) return;
     pushFaculties(map, facultyData);
   }, [facultyData, sourcesReady, pushFaculties]);
 
-  /** ---------- Rebuild markers (and their events) ---------- */
+  /** ---------- Rebuild markers when data, viz or basemap changes ---------- */
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    rebuildMarkers(map, facultyData);
-  }, [facultyData, rebuildMarkers]);
+
+    const spikesActive =
+      mapMode === "3d" || (mapMode === "2d" && mapViz2D === "spikes");
+
+    rebuildMarkers(map, facultyData, spikesActive);
+  }, [facultyData, mapMode, mapViz2D, mapStyle2D, rebuildMarkers]);
 
   /** ---------- Ensure markers once visible ---------- */
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapVisible) return;
-    rebuildMarkers(map, facultyData);
-  }, [mapVisible, facultyData, rebuildMarkers]);
 
-  // -------------------- BAR CHART TOOLTIP (Faculty Comparison) --------------------
+    const spikesActive = mapMode === "3d" || (mapMode === "2d" && mapViz2D === "spikes");
+    rebuildMarkers(map, facultyData, spikesActive);
+  }, [mapVisible, facultyData, mapMode, mapViz2D, rebuildMarkers]);
+
+  // -------------------- BAR CHART TOOLTIP --------------------
   const chartBoxRef = useRef<HTMLDivElement | null>(null);
   const [chartTip, setChartTip] = useState<{
     show: boolean;
@@ -1138,15 +1286,14 @@ const MapboxDashboard: React.FC = () => {
   const hideRadarTip = () => setRadarTip((t) => (t ? { ...t, show: false } : t));
 
   const renderRadar = () => {
-    // Original size again
     const W = 390;
     const H = 390;
     const cx = W / 2;
     const cy = H / 2;
-    const R = 175; // original radius
+    const R = 175;
     const axes = METRICS.length;
 
-    const angleFor = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / axes; // start at top
+    const angleFor = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / axes;
     const pointAt = (i: number, valuePct: number) => {
       const r = (clamp01(valuePct) / 100) * R;
       const a = angleFor(i);
@@ -1157,7 +1304,6 @@ const MapboxDashboard: React.FC = () => {
 
     return (
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full">
-        {/* axes lines */}
         {METRICS.map((m, i) => {
           const end = pointAt(i, 100);
           return (
@@ -1173,7 +1319,6 @@ const MapboxDashboard: React.FC = () => {
           );
         })}
 
-        {/* grid rings */}
         {rings.map((r) => {
           const path = METRICS.map((_, i) => pointAt(i, r))
             .map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x} ${p.y}`)
@@ -1190,10 +1335,12 @@ const MapboxDashboard: React.FC = () => {
           );
         })}
 
-        {/* series polygons */}
         {radarSeries.map((s, si) => {
           const pts = s.values.map((v, i) => pointAt(i, v));
-          const d = pts.map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ") + " Z";
+          const d =
+            pts
+              .map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x} ${p.y}`)
+              .join(" ") + " Z";
           return (
             <g key={`series-${si}`} style={{ pointerEvents: "none" }}>
               <path d={d} fill={hexToRgba(s.color, 0.15)} stroke={s.color} strokeWidth={2} />
@@ -1201,7 +1348,6 @@ const MapboxDashboard: React.FC = () => {
           );
         })}
 
-        {/* series data points (interactive for tooltip) */}
         {radarSeries.map((s, si) =>
           s.values.map((v, i) => {
             const p = pointAt(i, v);
@@ -1223,9 +1369,8 @@ const MapboxDashboard: React.FC = () => {
           })
         )}
 
-        {/* axis labels — bigger font  */}
         {METRICS.map((m, i) => {
-          const labelPt = pointAt(i, 100); // at the outer ring
+          const labelPt = pointAt(i, 100);
           const a = angleFor(i);
           const cos = Math.cos(a);
           const sin = Math.sin(a);
@@ -1238,7 +1383,7 @@ const MapboxDashboard: React.FC = () => {
               y={labelPt.y}
               textAnchor={anchor as any}
               dominantBaseline="middle"
-              className="fill-slate-700 text-sm font-medium" // <- bigger & bolder
+              className="fill-slate-700 text-sm font-medium"
               dy={dy}
             >
               {m.label}
@@ -1248,7 +1393,6 @@ const MapboxDashboard: React.FC = () => {
       </svg>
     );
   };
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
@@ -1316,37 +1460,52 @@ const MapboxDashboard: React.FC = () => {
               />
             </div>
 
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6" style={{overflowX: 'auto'}}>
-            <div className="flex items-center justify-between mb-1" style={{ minWidth: '175px' }}>
-              <h2 className="text-lg font-medium text-slate-800">Selected faculties</h2>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleSelectAll}
-                  disabled={allSelectable.length === 0 || selectedFaculties.length === allSelectable.length}
-                  className={`text-xs px-2 py-1 rounded-md border transition
-                    ${allSelectable.length === 0 || selectedFaculties.length === allSelectable.length
-                      ? 'opacity-50 cursor-not-allowed border-slate-200 text-slate-400 bg-slate-50'
-                      : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
-                  title="Select all faculties"
-                >
-                  Select all
-                </button>
-                <button
-                  onClick={handleClearAll}
-                  disabled={selectedFaculties.length === 0}
-                  className={`text-xs px-2 py-1 rounded-md border transition
-                    ${selectedFaculties.length === 0
-                      ? 'opacity-50 cursor-not-allowed border-slate-200 text-slate-400 bg-slate-50'
-                      : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
-                  title="Clear selection"
-                >
-                  Clear
-                </button>
+            <div
+              className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6"
+              style={{ overflowX: "auto" }}
+            >
+              <div
+                className="flex items-center justify-between mb-1"
+                style={{ minWidth: "175px" }}
+              >
+                <h2 className="text-lg font-medium text-slate-800">Selected faculties</h2>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleSelectAll}
+                    disabled={
+                      allSelectable.length === 0 ||
+                      selectedFaculties.length === allSelectable.length
+                    }
+                    className={`text-xs px-2 py-1 rounded-md border transition
+                      ${
+                        allSelectable.length === 0 ||
+                        selectedFaculties.length === allSelectable.length
+                          ? "opacity-50 cursor-not-allowed border-slate-200 text-slate-400 bg-slate-50"
+                          : "border-slate-300 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    title="Select all faculties"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    onClick={handleClearAll}
+                    disabled={selectedFaculties.length === 0}
+                    className={`text-xs px-2 py-1 rounded-md border transition
+                      ${
+                        selectedFaculties.length === 0
+                          ? "opacity-50 cursor-not-allowed border-slate-200 text-slate-400 bg-slate-50"
+                          : "border-slate-300 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    title="Clear selection"
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
-            </div>
-            <p className="text-sm text-slate-500 mb-4">
-              {visibleSelected.length} selected {allSelectable.length ? `· ${allSelectable.length} available` : ''}
-            </p>
+              <p className="text-sm text-slate-500 mb-4">
+                {visibleSelected.length} selected{" "}
+                {allSelectable.length ? `· ${allSelectable.length} available` : ""}
+              </p>
 
               <div
                 className="space-y-3 max-h-[500px] overflow-y-auto"
@@ -1356,13 +1515,11 @@ const MapboxDashboard: React.FC = () => {
                   const f = facultyData.find((d) => d.faculty_name === name)!;
                   const RowIcon = pickIconComponent(f.faculty_name);
 
-                  // remove from chip list
                   const handleRemove = (e: React.MouseEvent) => {
-                    e.stopPropagation(); // don't trigger the "navigate" click
+                    e.stopPropagation();
                     setSelectedFaculties((prev) => prev.filter((x) => x !== name));
                   };
 
-                  // navigate to faculty detail (Dash side picks this up)
                   const handleNavigate = () => {
                     window.postMessage(
                       {
@@ -1386,7 +1543,6 @@ const MapboxDashboard: React.FC = () => {
                       `}
                       onClick={handleNavigate}
                     >
-                      {/* left icon bubble */}
                       <div
                         className="p-2 rounded-lg flex-shrink-0"
                         style={{ backgroundColor: `${f.color}20` }}
@@ -1396,7 +1552,6 @@ const MapboxDashboard: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* name + score text */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-slate-700 truncate">
                           {f.faculty_name}
@@ -1406,17 +1561,11 @@ const MapboxDashboard: React.FC = () => {
                         </p>
                       </div>
 
-                      {/* right side cluster: donut + close button */}
-                      <div
-                        className="relative flex items-start pr-2"
-                        /* pr-2 = breathing room from card edge */
-                      >
-                        {/* donut score with a little right padding so it doesn't collide with the X */}
+                      <div className="relative flex items-start pr-2">
                         <div className="pr-6">
                           <ScoreIndicator score={f.category_score} />
                         </div>
 
-                        {/* Close ('remove') button */}
                         <button
                           onClick={handleRemove}
                           className={`
@@ -1439,145 +1588,203 @@ const MapboxDashboard: React.FC = () => {
                   );
                 })}
               </div>
-
-
             </div>
           </div>
 
           <div className="col-span-9">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="w-full h-[718px] relative">
+              {/* Map header controls */}
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-slate-700 mr-2">Map mode</span>
+                  <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 overflow-hidden text-xs">
+                    <button
+                      onClick={() => setMapMode("3d")}
+                      className={
+                        "px-3 py-1.5 " +
+                        (mapMode === "3d"
+                          ? "bg-slate-900 text-white"
+                          : "text-slate-600 hover:bg-slate-100")
+                      }
+                    >
+                      3D
+                    </button>
+                    <button
+                      onClick={() => setMapMode("2d")}
+                      className={
+                        "px-3 py-1.5 border-l border-slate-200 " +
+                        (mapMode === "2d"
+                          ? "bg-slate-900 text-white"
+                          : "text-slate-600 hover:bg-slate-100")
+                      }
+                    >
+                      2D
+                    </button>
+                  </div>
+                </div>
+
+                {mapMode === "2d" && (
+              <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-600">Visualization</span>
+                  <select
+                    value={mapViz2D}
+                    onChange={(e) => setMapViz2D(e.target.value as MapViz2D)}
+                    className="px-2 py-1 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="spikes">Spikes</option>
+                    <option value="heatmap">Heatmap</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-600">Basemap</span>
+                  <select
+                    value={mapStyle2D}
+                    onChange={(e) => setMapStyle2D(e.target.value as MapStyle2D)}
+                    className="px-2 py-1 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+              </div>
+
+              <div className="w-full h-[680px] relative">
                 <div ref={mapContainer} className="absolute inset-0" />
                 {!mapVisible && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 z-10">
                     <Globe className="w-12 h-12 text-slate-400 mb-3 animate-pulse" />
-                    <h3 className="text-lg font-medium text-slate-600 mb-1">Loading 3D terrain...</h3>
-                    <p className="text-sm text-slate-500">Please wait while the map initializes</p>
+                    <h3 className="text-lg font-medium text-slate-600 mb-1">
+                      Loading map...
+                    </h3>
+                    <p className="text-sm text-slate-500">
+                      Please wait while the map initializes
+                    </p>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mt-6" style={{marginTop:'13px'}}>
-             {/* Faculty Comparison */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <h3 className="text-lg font-medium text-slate-800 mb-4">Faculty Comparison</h3>
+            <div className="grid grid-cols-2 gap-3 mt-6" style={{ marginTop: "13px" }}>
+              {/* Faculty Comparison */}
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h3 className="text-lg font-medium text-slate-800 mb-4">Faculty Comparison</h3>
 
-              {comparisonData.length === 0 ? (
-                <div className="h-[300px] bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl flex items-center justify-center">
-                  <div className="text-center">
-                    <TrendingUp className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                    <p className="text-slate-600 font-medium">Bar Chart</p>
-                    <p className="text-sm text-slate-500 mt-1">
-                      Select a faculty on the map to start a comparative analysis
-                    </p>
+                {comparisonData.length === 0 ? (
+                  <div className="h-[300px] bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl flex items-center justify-center">
+                    <div className="text-center">
+                      <TrendingUp className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                      <p className="text-slate-600 font-medium">Bar Chart</p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Select a faculty on the map to start a comparative analysis
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div
-                  ref={chartBoxRef}
-                  className="relative rounded-xl bg-gradient-to-br from-white to-slate-50 p-4 h-[300px] overflow-y-auto"
-                >
-                  <ol className="space-y-3 pr-2">
-                    {comparisonData.map((item) => {
-                      const RowIcon = pickIconComponent(item.originalName);
-                      return (
-                        <li
-                          key={item.originalName}
-                          className={`
-                            flex flex-col xl:flex-row
-                            xl:items-center
-                            gap-2 xl:gap-3
-                          `}
-                          onMouseEnter={(e) => showChartTip(e, item.name, item.score)}
-                          onMouseMove={(e) => showChartTip(e, item.name, item.score)}
-                          onMouseLeave={hideChartTip}
-                        >
-                          {/* Name + icon */}
-                          <div
+                ) : (
+                  <div
+                    ref={chartBoxRef}
+                    className="relative rounded-xl bg-gradient-to-br from-white to-slate-50 p-4 h-[300px] overflow-y-auto"
+                  >
+                    <ol className="space-y-3 pr-2">
+                      {comparisonData.map((item) => {
+                        const RowIcon = pickIconComponent(item.originalName);
+                        return (
+                          <li
+                            key={item.originalName}
                             className={`
-                              flex items-center gap-2
-                              text-sm font-semibold text-slate-800 truncate
-                              w-full
-                              xl:w-28 2xl:w-32
-                              shrink-0
+                              flex flex-col xl:flex-row
+                              xl:items-center
+                              gap-2 xl:gap-3
                             `}
+                            onMouseEnter={(e) => showChartTip(e, item.name, item.score)}
+                            onMouseMove={(e) => showChartTip(e, item.name, item.score)}
+                            onMouseLeave={hideChartTip}
                           >
-                            <span
-                              className="inline-flex items-center justify-center rounded-md p-1"
-                              style={{ background: `${item.color}22`, color: item.color }}
-                              title={item.originalName}
+                            <div
+                              className={`
+                                flex items-center gap-2
+                                text-sm font-semibold text-slate-800 truncate
+                                w-full
+                                xl:w-28 2xl:w-32
+                                shrink-0
+                              `}
                             >
-                              <RowIcon className="w-4 h-4" />
-                            </span>
-                            <span className="truncate">{item.name}</span>
-                          </div>
-
-                          {/* Bar */}
-                          <div
-                            className={`
-                              relative
-                              w-full xl:flex-1
-                              h-[2.5rem] xl:h-8
-                              min-h-[2.5rem]
-                              rounded-lg border border-slate-200 bg-slate-100 overflow-hidden
-                            `}
-                          >
-                            {[25, 50, 75, 100].map((p) => (
-                              <div
-                                key={p}
-                                className="absolute top-0 bottom-0 border-l border-slate-200"
-                                style={{ left: `${p}%` }}
-                              />
-                            ))}
+                              <span
+                                className="inline-flex items-center justify-center rounded-md p-1"
+                                style={{ background: `${item.color}22`, color: item.color }}
+                                title={item.originalName}
+                              >
+                                <RowIcon className="w-4 h-4" />
+                              </span>
+                              <span className="truncate">{item.name}</span>
+                            </div>
 
                             <div
-                              className="absolute inset-y-0 left-0 rounded-r-lg transition-all duration-500"
-                              style={{
-                                width: `${Math.max(0, Math.min(100, item.score))}%`,
-                                background: item.color || "#3b82f6",
-                              }}
-                              role="meter"
-                              aria-label={`${item.name} score`}
-                              aria-valuenow={Math.round(item.score)}
-                              aria-valuemin={0}
-                              aria-valuemax={100}
-                            />
-                          </div>
+                              className={`
+                                relative
+                                w-full xl:flex-1
+                                h-[2.5rem] xl:h-8
+                                min-h-[2.5rem]
+                                rounded-lg border border-slate-200 bg-slate-100 overflow-hidden
+                              `}
+                            >
+                              {[25, 50, 75, 100].map((p) => (
+                                <div
+                                  key={p}
+                                  className="absolute top-0 bottom-0 border-l border-slate-200"
+                                  style={{ left: `${p}%` }}
+                                />
+                              ))}
 
-                          {/* Numeric score */}
-                          <div
-                            className={`
-                              w-full xl:w-12
-                              text-right text-sm font-semibold text-slate-800
-                            `}
-                          >
-                            {item.score.toFixed(1)}
-                          </div>
-                        </li>
+                              <div
+                                className="absolute inset-y-0 left-0 rounded-r-lg transition-all duration-500"
+                                style={{
+                                  width: `${Math.max(0, Math.min(100, item.score))}%`,
+                                  background: item.color || "#3b82f6",
+                                }}
+                                role="meter"
+                                aria-label={`${item.name} score`}
+                                aria-valuenow={Math.round(item.score)}
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                              />
+                            </div>
 
+                            <div
+                              className={`
+                                w-full xl:w-12
+                                text-right text-sm font-semibold text-slate-800
+                              `}
+                            >
+                              {item.score.toFixed(1)}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
 
-                      );
-                    })}
-                  </ol>
-
-                  {/* Hover tooltip */}
-                  {chartTip?.show && (
-                    <div
-                      className="absolute pointer-events-none px-2 py-1 text-[11px] rounded-md shadow-sm border border-slate-200 bg-white text-slate-700"
-                      style={{ left: chartTip.x, top: chartTip.y }}
-                    >
-                      <span className="font-semibold">{chartTip.name}</span>
-                      <span className="ml-2">{chartTip.score.toFixed(1)}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                    {chartTip?.show && (
+                      <div
+                        className="absolute pointer-events-none px-2 py-1 text-[11px] rounded-md shadow-sm border border-slate-200 bg-white text-slate-700"
+                        style={{ left: chartTip.x, top: chartTip.y }}
+                      >
+                        <span className="font-semibold">{chartTip.name}</span>
+                        <span className="ml-2">{chartTip.score.toFixed(1)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Multi-dimensional Analysis (Spider Chart) */}
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                <h3 className="text-lg font-medium text-slate-800 mb-4">Multi-dimensional Analysis</h3>
+                <h3 className="text-lg font-medium text-slate-800 mb-4">
+                  Multi-dimensional Analysis
+                </h3>
 
                 {radarSeries.length === 0 ? (
                   <div className="h-[300px] bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl flex items-center justify-center">
@@ -1600,7 +1807,6 @@ const MapboxDashboard: React.FC = () => {
                   >
                     <div className="absolute inset-0">{renderRadar()}</div>
 
-                    {/* Tooltip */}
                     {radarTip?.show && (
                       <div
                         className="absolute pointer-events-none px-2 py-1 text-[11px] rounded-md shadow-sm border border-slate-200 bg-white text-slate-700"

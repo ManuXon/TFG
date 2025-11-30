@@ -249,6 +249,84 @@ const UsesFunctionalityChart: React.FC<{
     "Advanced use": "#c084fc",
   };
 
+  // -------- Legend helpers (mirror Knowledge spider) --------
+  const formatUsageLegendName = useCallback(
+    (
+      label: string,
+      n: number,
+      pct: number,
+      mean: number,
+      min: number,
+      max: number
+    ) => {
+      const safeN = Number.isFinite(n) ? n : 0;
+      const safePct = Number.isFinite(pct) ? pct : 0;
+      const safeMean = Number.isFinite(mean) ? mean : 0;
+      const safeMin = Number.isFinite(min) ? min : 0;
+      const safeMax = Number.isFinite(max) ? max : 0;
+
+      return [
+        `<span style="font-weight:600">${label}</span>`,
+        `<span style="font-size:11px; color:#4b5563">n=${safeN} · ${safePct.toFixed(
+          1
+        )}% · μ=${safeMean.toFixed(2)} [${safeMin.toFixed(
+          2
+        )}–${safeMax.toFixed(2)}]</span>`,
+      ].join("<br>");
+    },
+    []
+  );
+
+  const usageLegendTitleText = useMemo(
+    () =>
+      `<span style="font-weight:600">AI usage level</span> (total n=${totalN})` +
+      '<br><span style="font-size:11px; font-style:italic">mean / min / max across tasks</span>',
+    [totalN]
+  );
+  // ---------------------------------------------------------
+
+  // ---- Title + tooltip (same structure as Knowledge) ----
+  const UsesTitleWithTooltip: React.FC<{ label: string }> = ({ label }) => (
+    <div className="flex items-center justify-center mb-1">
+      <div className="relative inline-flex items-center gap-1 group">
+        <span
+          className="text-slate-800 font-semibold"
+          style={{ fontSize: barTitleSize }}
+        >
+          {label}
+        </span>
+        <span className="inline-flex items-center justify-center w-4 h-4 text-[11px] rounded-full border border-purple-400 text-purple-600 bg-purple-50 font-semibold cursor-help leading-none">
+          ?
+        </span>
+        {/* Tooltip – same structure as KnowledgeTitleWithTooltip */}
+        <div className="pointer-events-none absolute left-1/2 top-full z-10 hidden w-[320px] -translate-x-1/2 translate-y-2 rounded-md bg-purple-50 px-3 py-2 text-xs text-slate-700 shadow-lg ring-1 ring-purple-200 group-hover:block">
+          <p className="font-semibold mb-1 text-purple-900">
+            How to read this chart
+          </p>
+          <p className="mb-1">Original survey questions:</p>
+          <ul className="list-disc pl-4 space-y-0.5 mb-2">
+            <li>
+              <span className="font-medium">“Rate your use of AI.”</span>{" "}
+              Answers range from no use to advanced use.
+            </li>
+            <li>
+              <span className="font-medium">“I use AI for...”</span>{" "}
+              for each task shown on the axes.
+            </li>
+          </ul>
+          <p className="mb-1 font-medium">Numeric scale used for averages:</p>
+          <ul className="list-disc pl-4 space-y-0.5">
+            <li>1 = Never</li>
+            <li>2 = Sometimes</li>
+            <li>3 = Often</li>
+            <li>4 = Very often</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+  // --------------------------------------------------------
+
   return (
     <div>
       {/* Filters */}
@@ -364,6 +442,7 @@ const UsesFunctionalityChart: React.FC<{
               <>
                 {/* TOP: grouped bar (tasks × usage levels) */}
                 <div className="flex-1">
+                  <UsesTitleWithTooltip label="How often is AI used across tasks?" />
                   <Plot
                     data={funcLabels.map((taskLabel, i) => ({
                       x: orderedUsageLabels,
@@ -382,7 +461,7 @@ const UsesFunctionalityChart: React.FC<{
                     layout={{
                       barmode: "group",
                       title: {
-                        text: "How often is AI used across tasks?",
+                        text: "",
                         y: 0.96,
                         font: { size: barTitleSize },
                       },
@@ -406,7 +485,7 @@ const UsesFunctionalityChart: React.FC<{
                       paper_bgcolor: "rgba(0,0,0,0)",
                       plot_bgcolor: "rgba(0,0,0,0)",
                     }}
-                    style={{ width: "100%", height: "390px" }}
+                    style={{ width: "100%", height: "360px" }}
                     config={{ displayModeBar: false }}
                   />
                 </div>
@@ -528,247 +607,254 @@ const UsesFunctionalityChart: React.FC<{
             )}
 
             {chartFamily === "heatmap" && (
-              <Plot
-                data={[
-                  {
-                    z: matrix,
-                    x: funcLabels,
-                    y: orderedUsageLabels,
-                    type: "heatmap",
-                    colorscale: purplesScale,
-                    colorbar: {
-                      title: { text: "Usage", font: { color: "#6b21a8" } },
-                      tickfont: { color: "#6b21a8" },
-                      outlinecolor: "#6b21a8",
-                      outlinewidth: 1,
+              <>
+                <UsesTitleWithTooltip label="How often is AI used across tasks?" />
+                <Plot
+                  data={[
+                    {
+                      z: matrix,
+                      x: funcLabels,
+                      y: orderedUsageLabels,
+                      type: "heatmap",
+                      colorscale: purplesScale,
+                      colorbar: {
+                        title: { text: "Usage", font: { color: "#6b21a8" } },
+                        tickfont: { color: "#6b21a8" },
+                        outlinecolor: "#6b21a8",
+                        outlinewidth: 1,
+                      },
+                      hovertemplate:
+                        `<b>AI Usage Level:</b> %{y}<br><b>Task:</b> %{x}` +
+                        `<br><b>Avg Frequency:</b> %{z:.2f}<extra></extra>`,
                     },
-                    hovertemplate:
-                      `<b>AI Usage Level:</b> %{y}<br><b>Task:</b> %{x}` +
-                      `<br><b>Avg Frequency:</b> %{z:.2f}<extra></extra>`,
-                  },
-                ]}
-                layout={{
-                  title: {
-                    text: "How often is AI used across tasks?",
-                    y: 0.96,
-                    font: { size: barTitleSize },
-                  },
-                  yaxis: {
-                    autorange: "reversed",
-                    tickfont: { size: radarTickFontSize },
-                  },
-                  xaxis: { tickfont: { size: 11 } },
-                  margin: { t: 110, l: 110, r: 0, b: 110 },
-                  paper_bgcolor: "rgba(0,0,0,0)",
-                  plot_bgcolor: "rgba(0,0,0,0)",
-                  font: { color: "#334155" },
-                }}
-                config={{ displayModeBar: false }}
-                style={{ width: "95%", height: "100%" }}
-              />
+                  ]}
+                  layout={{
+                    title: {
+                      text: "",
+                      y: 0.96,
+                      font: { size: barTitleSize },
+                    },
+                    yaxis: {
+                      autorange: "reversed",
+                      tickfont: { size: radarTickFontSize },
+                    },
+                    xaxis: { tickfont: { size: 11 } },
+                    margin: { t: 80, l: 110, r: 0, b: 110 },
+                    paper_bgcolor: "rgba(0,0,0,0)",
+                    plot_bgcolor: "rgba(0,0,0,0)",
+                    font: { color: "#334155" },
+                  }}
+                  config={{ displayModeBar: false }}
+                  style={{ width: "95%", height: "100%" }}
+                />
+              </>
             )}
 
             {chartFamily === "spider" && spiderMode === "area" && (
-              <Plot
-                data={radarOrder.map((lbl) => {
-                  const color = radarColors[lbl] || "#6b21a8";
-                  const row = rowByLabel[lbl];
-                  const rVals = funcLabels.map((task) => row[task]);
+              <>
+                <UsesTitleWithTooltip label="How often is AI used across tasks?" />
+                <Plot
+                  data={radarOrder.map((lbl) => {
+                    const color = radarColors[lbl] || "#6b21a8";
+                    const row = rowByLabel[lbl];
+                    const rVals = funcLabels.map((task) => row[task]);
 
-                  const n = row?.n ?? 0;
-                  const pct = row?.pct ?? 0;
-                  const mean = row?.group_mean ?? 0;
-                  const min = row?.group_min ?? 0;
-                  const max = row?.group_max ?? 0;
+                    const n = row?.n ?? 0;
+                    const pct = row?.pct ?? 0;
+                    const mean = row?.group_mean ?? 0;
+                    const min = row?.group_min ?? 0;
+                    const max = row?.group_max ?? 0;
 
-                  // multi-line legend label
-                  const legendName = [
-                    lbl,
-                    `n=${n} · ${pct.toFixed(1)}%`,
-                    `μ=${mean.toFixed(2)} · min=${min.toFixed(
-                      2
-                    )} · max=${max.toFixed(2)}`,
-                  ].join("<br>");
+                    // legend label with boxed, formatted content
+                    const legendName = formatUsageLegendName(
+                      lbl,
+                      n,
+                      pct,
+                      mean,
+                      min,
+                      max
+                    );
 
-                  return {
-                    type: "scatterpolar" as const,
-                    r: rVals.concat(rVals[0]),
-                    theta: funcLabels.concat(funcLabels[0]),
-                    fill: "toself",
-                    name: legendName,
-                    line: { color, width: 3 },
-                    fillcolor: color + "40",
-                    hovertemplate:
-                      `<b>%{theta}</b><br>Usage Level: <b>${lbl}</b>` +
-                      `<br>Avg Frequency: %{r:.2f}<extra></extra>`,
-                  };
-                })}
-                layout={{
-                  title: {
-                    text: "How often is AI used across tasks?",
-                    font: { size: barTitleSize, color: "#334155" },
-                  },
-                  polar: {
-                    bgcolor: "rgba(0,0,0,0)",
-                    radialaxis: {
-                      visible: true,
-                      showline: true,
-                      range: [0, 4],
-                      gridcolor: "#f1f5f9",
-                      gridwidth: 1.3,
-                      tickfont: { color: "#475569", size: 11 },
-                      tickangle: 0,
-                      ticksuffix: " ",
-                      title: {
-                        text: "Usage frequency",
-                        font: { size: 11 },
-                      },
-                    },
-                    angularaxis: {
-                      gridcolor: "#e2e8f0",
-                      linecolor: "#cbd5e1",
-                      showline: true,
-                      linewidth: 1.5,
-                      tickfont: {
-                        color: "#334155",
-                        size: radarTickFontSize,
-                      },
-                      ticklen: 8,
-                      ticks: "",
-                      direction: "clockwise",
-                      rotation: 90,
-                    },
-                  },
-                  showlegend: true,
-                  legend: {
+                    return {
+                      type: "scatterpolar" as const,
+                      r: rVals.concat(rVals[0]),
+                      theta: funcLabels.concat(funcLabels[0]),
+                      fill: "toself",
+                      name: legendName,
+                      line: { color, width: 3 },
+                      fillcolor: color + "40",
+                      hovertemplate:
+                        `<b>%{theta}</b><br>Usage Level: <b>${lbl}</b>` +
+                        `<br>Avg Frequency: %{r:.2f}<extra></extra>`,
+                    };
+                  })}
+                  layout={{
                     title: {
-                      text:
-                        `AI usage level (total n=${totalN})` +
-                        '<br><span style="font-size:11px">mean / min / max across tasks</span>',
-                      font: { color: "#334155", size: radarLegendSize - 1 },
+                      text: "",
+                      font: { size: barTitleSize, color: "#334155" },
                     },
-                    orientation: "v",
-                    y: 1.05,
-                    x: -0.12,
-                    xanchor: "left",
-                    yanchor: "top",
-                    font: {
-                      color: "#334155",
-                      size: radarLegendSize - 2,
+                    polar: {
+                      bgcolor: "rgba(0,0,0,0)",
+                      radialaxis: {
+                        visible: true,
+                        showline: true,
+                        range: [0, 4],
+                        gridcolor: "#f1f5f9",
+                        gridwidth: 1.3,
+                        tickfont: { color: "#475569", size: 11 },
+                        tickangle: 0,
+                        ticksuffix: " ",
+                        title: {
+                          text: "Usage frequency",
+                          font: { size: 11 },
+                        },
+                      },
+                      angularaxis: {
+                        gridcolor: "#e2e8f0",
+                        linecolor: "#cbd5e1",
+                        showline: true,
+                        linewidth: 1.5,
+                        tickfont: {
+                          color: "#334155",
+                          size: radarTickFontSize,
+                        },
+                        ticklen: 8,
+                        ticks: "",
+                        direction: "clockwise",
+                        rotation: 90,
+                      },
                     },
-                    bgcolor: "rgba(255,255,255,0.9)",
-                    bordercolor: "#e2e8f0",
-                    borderwidth: 1,
-                  },
-                  margin: { t: 90, l: 20, r: 40, b: 40 },
-                  paper_bgcolor: "rgba(0,0,0,0)",
-                  plot_bgcolor: "rgba(0,0,0,0)",
-                }}
-                style={{ width: "100%", height: "100%" }}
-                config={{ displayModeBar: false }}
-              />
+                    showlegend: true,
+                    legend: {
+                      title: {
+                        text: usageLegendTitleText,
+                        font: { color: "#334155", size: radarLegendSize - 1 },
+                      },
+                      orientation: "v",
+                      y: 1.05,
+                      x: -0.12,
+                      xanchor: "left",
+                      yanchor: "top",
+                      font: {
+                        color: "#334155",
+                        size: radarLegendSize - 2,
+                      },
+                      bgcolor: "rgba(255,255,255,0.9)",
+                      bordercolor: "#e2e8f0",
+                      borderwidth: 1,
+                    },
+                    margin: { t: 60, l: 20, r: 40, b: 40 },
+                    paper_bgcolor: "rgba(0,0,0,0)",
+                    plot_bgcolor: "rgba(0,0,0,0)",
+                  }}
+                  style={{ width: "100%", height: "100%" }}
+                  config={{ displayModeBar: false }}
+                />
+              </>
             )}
 
             {chartFamily === "spider" && spiderMode === "bars" && (
-              <Plot
-                data={radarOrder.map((lbl) => {
-                  const color = radarColors[lbl] || "#6b21a8";
-                  const row = rowByLabel[lbl];
-                  const rVals = funcLabels.map((task) => row[task]);
+              <>
+                <UsesTitleWithTooltip label="How often is AI used across tasks?" />
+                <Plot
+                  data={radarOrder.map((lbl) => {
+                    const color = radarColors[lbl] || "#6b21a8";
+                    const row = rowByLabel[lbl];
+                    const rVals = funcLabels.map((task) => row[task]);
 
-                  const n = row?.n ?? 0;
-                  const pct = row?.pct ?? 0;
-                  const mean = row?.group_mean ?? 0;
-                  const min = row?.group_min ?? 0;
-                  const max = row?.group_max ?? 0;
+                    const n = row?.n ?? 0;
+                    const pct = row?.pct ?? 0;
+                    const mean = row?.group_mean ?? 0;
+                    const min = row?.group_min ?? 0;
+                    const max = row?.group_max ?? 0;
 
-                  const legendName = [
-                    lbl,
-                    `n=${n} · ${pct.toFixed(1)}%`,
-                    `μ=${mean.toFixed(2)} · min=${min.toFixed(
-                      2
-                    )} · max=${max.toFixed(2)}`,
-                  ].join("<br>");
+                    const legendName = formatUsageLegendName(
+                      lbl,
+                      n,
+                      pct,
+                      mean,
+                      min,
+                      max
+                    );
 
-                  return {
-                    type: "barpolar" as const,
-                    r: rVals,
-                    theta: funcLabels,
-                    name: legendName,
-                    marker: {
-                      color,
-                      line: { color: "#ffffff", width: 1 },
-                    },
-                    opacity: 0.95,
-                    hovertemplate:
-                      `<b>%{theta}</b><br>Usage Level: <b>${lbl}</b>` +
-                      `<br>Avg Frequency: %{r:.2f}<extra></extra>`,
-                  };
-                })}
-                layout={{
-                  title: {
-                    text: "How often is AI used across tasks?",
-                    font: { size: barTitleSize, color: "#334155" },
-                    y: 0.96,
-                  },
-                  polar: {
-                    bgcolor: "rgba(0,0,0,0)",
-                    radialaxis: {
-                      // dynamic range based on stacked column sums
-                      range: [0, maxRadialValue],
-                      visible: false,
-                      showline: false,
-                      gridcolor: "#f1f5f9",
-                      gridwidth: 1.3,
-                      showticklabels: false,
-                      ticks: "",
-                      title: {
-                        text: "Usage frequency",
-                        font: { size: 11 },
+                    return {
+                      type: "barpolar" as const,
+                      r: rVals,
+                      theta: funcLabels,
+                      name: legendName,
+                      marker: {
+                        color,
+                        line: { color: "#ffffff", width: 1 },
                       },
-                    },
-                    angularaxis: {
-                      gridcolor: "#e2e8f0",
-                      linecolor: "#cbd5e1",
-                      showline: true,
-                      linewidth: 1.5,
-                      tickfont: {
-                        color: "#334155",
-                        size: radarTickFontSize,
-                      },
-                      ticklen: 8,
-                      ticks: "",
-                      direction: "clockwise",
-                      rotation: 90,
-                    },
-                  },
-                  // stacked so the visual "columns" match the range logic
-                  barmode: "stack",
-                  showlegend: true,
-                  legend: {
+                      opacity: 0.95,
+                      hovertemplate:
+                        `<b>%{theta}</b><br>Usage Level: <b>${lbl}</b>` +
+                        `<br>Avg Frequency: %{r:.2f}<extra></extra>`,
+                    };
+                  })}
+                  layout={{
                     title: {
-                      text:
-                        `AI usage level (total n=${totalN})` +
-                        '<br><span style="font-size:11px">mean / min / max across tasks</span>',
-                      font: { color: "#334155", size: radarLegendSize - 1 },
+                      text: "",
+                      font: { size: barTitleSize, color: "#334155" },
+                      y: 0.96,
                     },
-                    orientation: "v",
-                    y: 1.05,
-                    x: -0.12,
-                    xanchor: "left",
-                    yanchor: "top",
-                    font: { color: "#334155", size: radarLegendSize - 2 },
-                    bgcolor: "rgba(255,255,255,0.9)",
-                    bordercolor: "#e2e8f0",
-                    borderwidth: 1,
-                  },
-                  margin: { t: 90, l: 20, r: 40, b: 40 },
-                  paper_bgcolor: "rgba(0,0,0,0)",
-                  plot_bgcolor: "rgba(0,0,0,0)",
-                }}
-                style={{ width: "100%", height: "100%" }}
-                config={{ displayModeBar: false }}
-              />
+                    polar: {
+                      bgcolor: "rgba(0,0,0,0)",
+                      radialaxis: {
+                        // dynamic range based on stacked column sums
+                        range: [0, maxRadialValue],
+                        visible: false,
+                        showline: false,
+                        gridcolor: "#f1f5f9",
+                        gridwidth: 1.3,
+                        showticklabels: false,
+                        ticks: "",
+                        title: {
+                          text: "Usage frequency",
+                          font: { size: 11 },
+                        },
+                      },
+                      angularaxis: {
+                        gridcolor: "#e2e8f0",
+                        linecolor: "#cbd5e1",
+                        showline: true,
+                        linewidth: 1.5,
+                        tickfont: {
+                          color: "#334155",
+                          size: radarTickFontSize,
+                        },
+                        ticklen: 8,
+                        ticks: "",
+                        direction: "clockwise",
+                        rotation: 90,
+                      },
+                    },
+                    // stacked so the visual "columns" match the range logic
+                    barmode: "stack",
+                    showlegend: true,
+                    legend: {
+                      title: {
+                        text: usageLegendTitleText,
+                        font: { color: "#334155", size: radarLegendSize - 1 },
+                      },
+                      orientation: "v",
+                      y: 1.05,
+                      x: -0.12,
+                      xanchor: "left",
+                      yanchor: "top",
+                      font: { color: "#334155", size: radarLegendSize - 2 },
+                      bgcolor: "rgba(255,255,255,0.9)",
+                      bordercolor: "#e2e8f0",
+                      borderwidth: 1,
+                    },
+                    margin: { t: 60, l: 20, r: 40, b: 40 },
+                    paper_bgcolor: "rgba(0,0,0,0)",
+                    plot_bgcolor: "rgba(0,0,0,0)",
+                  }}
+                  style={{ width: "100%", height: "100%" }}
+                  config={{ displayModeBar: false }}
+                />
+              </>
             )}
           </>
         )}

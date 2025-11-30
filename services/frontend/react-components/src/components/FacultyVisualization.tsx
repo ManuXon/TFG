@@ -573,8 +573,7 @@ const KnowledgeFunctionalityChart: React.FC<{
     useState<"bar" | "heatmap" | "spider">("spider");
 
   // spider variant for the buttons
-  const [spiderMode, setSpiderMode] =
-    useState<"area" | "bars">("area");
+  const [spiderMode, setSpiderMode] = useState<"area" | "bars">("area");
 
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -607,7 +606,9 @@ const KnowledgeFunctionalityChart: React.FC<{
       return `rgba(${r},${g},${b},${a})`;
     }
     if (s[0] === "#") {
-      let r = 0, g = 0, b = 0;
+      let r = 0,
+        g = 0,
+        b = 0;
       if (s.length === 4) {
         r = parseInt(s[1] + s[1], 16);
         g = parseInt(s[2] + s[2], 16);
@@ -762,6 +763,56 @@ const KnowledgeFunctionalityChart: React.FC<{
     "Expert knowledge": "#fac681",
   };
 
+  // ---- Title + custom tooltip (English, styled) ----
+  const knowledgeTitleText = "What's the knowledge within applications?";
+
+  const KnowledgeTitleWithTooltip: React.FC<{ label: string }> = ({
+    label,
+  }) => (
+    <div className="flex items-center justify-center mb-1">
+      <div className="relative inline-flex items-center gap-1 group">
+        <span
+          className="text-slate-800 font-semibold"
+          style={{ fontSize: barTitleSize }}
+        >
+          {label}
+        </span>
+        <span className="inline-flex items-center justify-center w-4 h-4 text-[11px] rounded-full border border-rose-400 text-rose-600 bg-rose-50 font-semibold cursor-help leading-none">
+          ?
+        </span>
+        {/* Custom tooltip */}
+        <div className="pointer-events-none absolute left-1/2 top-full z-10 hidden w-[320px] -translate-x-1/2 translate-y-2 rounded-md bg-rose-50 px-3 py-2 text-xs text-slate-700 shadow-lg ring-1 ring-rose-200 group-hover:block">
+          <p className="font-semibold mb-1 text-rose-900">
+            How to read this chart
+          </p>
+          <p className="mb-1">Original survey questions:</p>
+          <ul className="list-disc pl-4 space-y-0.5 mb-2">
+            <li>
+              <span className="font-medium">
+                “Rate your knowledge about AI.”
+              </span>{" "}
+              Answers range from no knowledge to advanced knowledge.
+            </li>
+            <li>
+              <span className="font-medium">
+                “I know AI applications for...”
+              </span>{" "}
+              for each application shown on the axes.
+            </li>
+          </ul>
+          <p className="mb-1 font-medium">Numeric scale used for averages:</p>
+          <ul className="list-disc pl-4 space-y-0.5">
+            <li>1 = I don't know any</li>
+            <li>2 = I know a few</li>
+            <li>3 = I know several</li>
+            <li>4 = I know many</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+  // ----------------------------------------------------------
+
   return (
     <div>
       {/* Filters ALWAYS visible */}
@@ -877,7 +928,8 @@ const KnowledgeFunctionalityChart: React.FC<{
             {chartFamily === "bar" && (
               <>
                 {/* TOP: grouped bar */}
-                <div className="flex-1">
+                <div className="flex-1 flex flex-col">
+                  <KnowledgeTitleWithTooltip label={knowledgeTitleText} />
                   <Plot
                     data={funcLabels.map((label, i) => ({
                       x: knowledgeLabels,
@@ -893,11 +945,7 @@ const KnowledgeFunctionalityChart: React.FC<{
                     }))}
                     layout={{
                       barmode: "group",
-                      title: {
-                        text: "Whats the knowledge within applications?",
-                        y: 0.96,
-                        font: { size: barTitleSize },
-                      },
+                      title: { text: "" }, // external title handles text
                       xaxis: {
                         categoryorder: "array",
                         categoryarray: canonicalKnowledgeOrder,
@@ -916,7 +964,7 @@ const KnowledgeFunctionalityChart: React.FC<{
                         bordercolor: "#e2e8f0",
                         borderwidth: 1,
                       },
-                      margin: { t: 80, l: 60, r: 30, b: 80 },
+                      margin: { t: 40, l: 60, r: 30, b: 80 },
                       paper_bgcolor: "rgba(0,0,0,0)",
                       plot_bgcolor: "rgba(0,0,0,0)",
                     }}
@@ -959,15 +1007,13 @@ const KnowledgeFunctionalityChart: React.FC<{
                           array: orderedGroupStats.map((g) =>
                             Math.max(
                               0,
-                              ((g.max ?? 1) - (g.mean ?? 1)) *
-                                FAMILIARITY_SCALE
+                              ((g.max ?? 1) - (g.mean ?? 1)) * FAMILIARITY_SCALE
                             )
                           ),
                           arrayminus: orderedGroupStats.map((g) =>
                             Math.max(
                               0,
-                              ((g.mean ?? 1) - (g.min ?? 1)) *
-                                FAMILIARITY_SCALE
+                              ((g.mean ?? 1) - (g.min ?? 1)) * FAMILIARITY_SCALE
                             )
                           ),
                           visible: true,
@@ -989,7 +1035,7 @@ const KnowledgeFunctionalityChart: React.FC<{
                     ]}
                     layout={{
                       title: {
-                        text: `Knowledge group distribution`,
+                        text: "Knowledge group distribution",
                         font: { size: barTitleSize },
                         y: 1,
                       },
@@ -1039,241 +1085,238 @@ const KnowledgeFunctionalityChart: React.FC<{
             )}
 
             {chartFamily === "heatmap" && (
-              <Plot
-                data={[
-                  {
-                    z: matrix,
-                    x: funcLabels,
-                    y: knowledgeLabels,
-                    type: "heatmap",
-                    colorscale: "Reds",
-                    colorbar: { title: { text: "Familiarity" } },
-                    hovertemplate:
-                      `<b>IA Knowledge:</b> %{y}` +
-                      `<br><b>Functionality:</b> %{x}` +
-                      `<br><b>Avg Familiarity:</b> %{z:.2f}<extra></extra>`,
-                  },
-                ]}
-                layout={{
-                  title: {
-                    text: "Whats the knowledge within applications?",
-                    y: 0.96,
-                    font: { size: barTitleSize },
-                  },
-                  y: 1.0,
-                  yaxis: {
-                    autorange: "reversed",
-                    tickfont: { size: radarTickFontSize },
-                  },
-                  xaxis: { tickfont: { size: 11 } },
-                  margin: { t: 110, l: 135, r: 0, b: 110 },
-                  paper_bgcolor: "rgba(0,0,0,0)",
-                  plot_bgcolor: "rgba(0,0,0,0)",
-                  font: { color: "#334155" },
-                }}
-                config={{ displayModeBar: false }}
-                style={{ width: "95%", height: "100%" }}
-              />
+              <div className="flex-1 flex flex-col items-center">
+                <KnowledgeTitleWithTooltip label={knowledgeTitleText} />
+                <Plot
+                  data={[
+                    {
+                      z: matrix,
+                      x: funcLabels,
+                      y: knowledgeLabels,
+                      type: "heatmap",
+                      colorscale: "Reds",
+                      colorbar: { title: { text: "Familiarity" } },
+                      hovertemplate:
+                        `<b>IA Knowledge:</b> %{y}` +
+                        `<br><b>Functionality:</b> %{x}` +
+                        `<br><b>Avg Familiarity:</b> %{z:.2f}<extra></extra>`,
+                    },
+                  ]}
+                  layout={{
+                    title: { text: "" },
+                    yaxis: {
+                      autorange: "reversed",
+                      tickfont: { size: radarTickFontSize },
+                    },
+                    xaxis: { tickfont: { size: 11 } },
+                    margin: { t: 40, l: 135, r: 0, b: 110 },
+                    paper_bgcolor: "rgba(0,0,0,0)",
+                    plot_bgcolor: "rgba(0,0,0,0)",
+                    font: { color: "#334155" },
+                  }}
+                  config={{ displayModeBar: false }}
+                  style={{ width: "95%", height: "100%" }}
+                />
+              </div>
             )}
 
             {chartFamily === "spider" && spiderMode === "area" && (
-              <Plot
-                data={data.map((d: any, i: number) => {
-                  const color = radarColors[d.knowledge_label] || "#b91c1c";
+              <div className="flex-1 flex flex-col">
+                <KnowledgeTitleWithTooltip label={knowledgeTitleText} />
+                <Plot
+                  data={data.map((d: any, i: number) => {
+                    const color = radarColors[d.knowledge_label] || "#b91c1c";
 
-                  const n = d.n ?? 0;
-                  const pct = d.pct ?? 0;
-                  const mean = d.group_mean ?? 0;
-                  const min = d.group_min ?? 0;
-                  const max = d.group_max ?? 0;
+                    const n = d.n ?? 0;
+                    const pct = d.pct ?? 0;
+                    const mean = d.group_mean ?? 0;
+                    const min = d.group_min ?? 0;
+                    const max = d.group_max ?? 0;
 
-                  const legendName = [
-                    d.knowledge_label,
-                    `n=${n} · ${pct.toFixed(1)}%`,
-                    `μ=${mean.toFixed(2)} · min=${min.toFixed(
-                      2
-                    )} · max=${max.toFixed(2)}`,
-                  ].join("<br>");
+                    const legendName = [
+                      `<span style="font-weight:600">${d.knowledge_label}</span>`,
+                      `<span style="font-size:11px; color:#4b5563">n=${n} · ${pct.toFixed(
+                        1
+                      )}% · μ=${mean.toFixed(2)} [${min.toFixed(
+                        2
+                      )}–${max.toFixed(2)}]</span>`,
+                    ].join("<br>");
 
-                  return {
-                    type: "scatterpolar" as const,
-                    r: matrix[i].concat(matrix[i][0]),
-                    theta: funcLabels.concat(funcLabels[0]),
-                    fill: "toself",
-                    name: legendName,
-                    line: { color, width: 3 },
-                    fillcolor: color + "40",
-                    hovertemplate:
-                      `<b>%{theta}</b><br>Knowledge Level: <b>${d.knowledge_label}</b>` +
-                      `<br>Avg Familiarity: %{r:.2f}<extra></extra>`,
-                  };
-                })}
-                layout={{
-                  title: {
-                    text: "Whats the knowledge within applications?",
-                    font: { size: barTitleSize, color: "#334155" },
-                    y: 0.96,
-                  },
-                  polar: {
-                    bgcolor: "rgba(0,0,0,0)",
-                    radialaxis: {
-                      visible: true,
-                      showline: true,
-                      range: [0, 4],
-                      gridcolor: "#f1f5f9",
-                      gridwidth: 1.3,
-                      tickfont: { color: "#475569", size: 11 },
-                      tickangle: 0,
-                      ticksuffix: " ",
+                    return {
+                      type: "scatterpolar" as const,
+                      r: matrix[i].concat(matrix[i][0]),
+                      theta: funcLabels.concat(funcLabels[0]),
+                      fill: "toself",
+                      name: legendName,
+                      line: { color, width: 3 },
+                      fillcolor: color + "40",
+                      hovertemplate:
+                        `<b>%{theta}</b><br>Knowledge Level: <b>${d.knowledge_label}</b>` +
+                        `<br>Avg Familiarity: %{r:.2f}<extra></extra>`,
+                    };
+                  })}
+                  layout={{
+                    title: { text: "" },
+                    polar: {
+                      bgcolor: "rgba(0,0,0,0)",
+                      radialaxis: {
+                        visible: true,
+                        showline: true,
+                        range: [0, 4],
+                        gridcolor: "#f1f5f9",
+                        gridwidth: 1.3,
+                        tickfont: { color: "#475569", size: 11 },
+                        tickangle: 0,
+                        ticksuffix: " ",
+                        title: {
+                          text: "Application familiarity",
+                          font: { size: 11 },
+                        },
+                      },
+                      angularaxis: {
+                        gridcolor: "#e2e8f0",
+                        linecolor: "#cbd5e1",
+                        showline: true,
+                        linewidth: 1.5,
+                        tickfont: {
+                          color: "#334155",
+                          size: radarTickFontSize,
+                        },
+                        ticklen: 8,
+                        ticks: "",
+                        direction: "clockwise",
+                        rotation: 90,
+                      },
+                    },
+                    showlegend: true,
+                    legend: {
                       title: {
-                        text: "Application familiarity",
-                        font: { size: 11 },
+                        text:
+                          `<span style="font-weight:600">AI Knowledge level</span> (total n=${totalN})` +
+                          '<br><span style="font-size:11px; font-style:italic">mean / min / max across applications</span>',
                       },
-                    },
-                    angularaxis: {
-                      gridcolor: "#e2e8f0",
-                      linecolor: "#cbd5e1",
-                      showline: true,
-                      linewidth: 1.5,
-                      tickfont: {
+                      orientation: "v",
+                      y: 1.05,
+                      x: -0.12,
+                      xanchor: "left",
+                      yanchor: "top",
+                      font: {
                         color: "#334155",
-                        size: radarTickFontSize,
+                        size: radarLegendSize - 2,
                       },
-                      ticklen: 8,
-                      ticks: "",
-                      direction: "clockwise",
-                      rotation: 90,
+                      bgcolor: "rgba(255,255,255,0.9)",
+                      bordercolor: "#e2e8f0",
+                      borderwidth: 1,
                     },
-                  },
-                  showlegend: true,
-                  legend: {
-                    title: {
-                      text:
-                        `AI Knowledge level (total n=${totalN})` +
-                        '<br><span style="font-size:11px">mean / min / max across applications</span>',
-                      font: { color: "#334155", size: radarLegendSize - 1 },
-                    },
-                    orientation: "v",
-                    y: 1.05,
-                    x: -0.12,
-                    xanchor: "left",
-                    yanchor: "top",
-                    font: {
-                      color: "#334155",
-                      size: radarLegendSize - 2,
-                    },
-                    bgcolor: "rgba(255,255,255,0.9)",
-                    bordercolor: "#e2e8f0",
-                    borderwidth: 1,
-                  },
-                  margin: { t: 90, l: 20, r: 40, b: 40 },
-                  paper_bgcolor: "rgba(0,0,0,0)",
-                  plot_bgcolor: "rgba(0,0,0,0)",
-                }}
-                style={{ width: "100%", height: "100%" }}
-                config={{ displayModeBar: false }}
-              />
+                    margin: { t: 40, l: 20, r: 40, b: 40 },
+                    paper_bgcolor: "rgba(0,0,0,0)",
+                    plot_bgcolor: "rgba(0,0,0,0)",
+                  }}
+                  style={{ width: "100%", height: "100%" }}
+                  config={{ displayModeBar: false }}
+                />
+              </div>
             )}
 
             {chartFamily === "spider" && spiderMode === "bars" && (
-              <Plot
-                data={data.map((d: any, i: number) => {
-                  const color = radarColors[d.knowledge_label] || "#b91c1c";
-                  const rVals = matrix[i];
+              <div className="flex-1 flex flex-col">
+                <KnowledgeTitleWithTooltip label={knowledgeTitleText} />
+                <Plot
+                  data={data.map((d: any, i: number) => {
+                    const color = radarColors[d.knowledge_label] || "#b91c1c";
+                    const rVals = matrix[i];
 
-                  const n   = d.n ?? 0;
-                  const pct = d.pct ?? 0;
-                  const mean = d.group_mean ?? 0;
-                  const min  = d.group_min ?? 0;
-                  const max  = d.group_max ?? 0;
+                    const n = d.n ?? 0;
+                    const pct = d.pct ?? 0;
+                    const mean = d.group_mean ?? 0;
+                    const min = d.group_min ?? 0;
+                    const max = d.group_max ?? 0;
 
-                  const legendName = [
-                    d.knowledge_label,
-                    `n=${n} · ${pct.toFixed(1)}%`,
-                    `μ=${mean.toFixed(2)} · min=${min.toFixed(2)} · max=${max.toFixed(2)}`
-                  ].join("<br>");
+                    const legendName = [
+                      `<span style="font-weight:600">${d.knowledge_label}</span>`,
+                      `<span style="font-size:11px; color:#4b5563">n=${n} · ${pct.toFixed(
+                        1
+                      )}% · μ=${mean.toFixed(2)} [${min.toFixed(
+                        2
+                      )}–${max.toFixed(2)}]</span>`,
+                    ].join("<br>");
 
-                  return {
-                    type: "barpolar" as const,
-                    r: rVals,
-                    theta: funcLabels,
-                    name: legendName,
-                    marker: {
-                      color,
-                      line: { color: "#ffffff", width: 1 },
+                    return {
+                      type: "barpolar" as const,
+                      r: rVals,
+                      theta: funcLabels,
+                      name: legendName,
+                      marker: {
+                        color,
+                        line: { color: "#ffffff", width: 1 },
+                      },
+                      opacity: 0.95,
+                      hovertemplate:
+                        `<b>%{theta}</b><br>Knowledge Level: <b>${d.knowledge_label}</b>` +
+                        `<br>Avg Familiarity: %{r:.2f}<extra></extra>`,
+                    };
+                  })}
+                  layout={{
+                    title: { text: "" },
+                    polar: {
+                      bgcolor: "rgba(0,0,0,0)",
+                      radialaxis: {
+                        // dynamic range based on stacked column sums
+                        range: [0, maxRadialValue],
+                        visible: false,
+                        showline: false,
+                        gridcolor: "#f1f5f9",
+                        gridwidth: 1.3,
+                        showticklabels: false,
+                        ticks: "",
+                        title: {
+                          text: "Application familiarity",
+                          font: { size: 11 },
+                        },
+                      },
+                      angularaxis: {
+                        gridcolor: "#e2e8f0",
+                        linecolor: "#cbd5e1",
+                        showline: true,
+                        linewidth: 1.5,
+                        tickfont: {
+                          color: "#334155",
+                          size: radarTickFontSize,
+                        },
+                        ticklen: 8,
+                        ticks: "",
+                        direction: "clockwise",
+                        rotation: 90,
+                      },
                     },
-                    opacity: 0.95,
-                    hovertemplate:
-                      `<b>%{theta}</b><br>Knowledge Level: <b>${d.knowledge_label}</b>` +
-                      `<br>Avg Familiarity: %{r:.2f}<extra></extra>`,
-                  };
-                })}
-                layout={{
-                  title: {
-                    text: "Whats the knowledge within applications?",
-                    font: { size: barTitleSize, color: "#334155" },
-                    y: 0.96,
-                  },
-                  polar: {
-                    bgcolor: "rgba(0,0,0,0)",
-                    radialaxis: {
-                      // dynamic range based on stacked column sums
-                      range: [0, maxRadialValue],
-                      visible: false,
-                      showline: false,
-                      gridcolor: "#f1f5f9",
-                      gridwidth: 1.3,
-                      showticklabels: false,
-                      ticks: "",
+                    // stacked so the visual columns match the range logic
+                    barmode: "stack",
+                    showlegend: true,
+                    legend: {
                       title: {
-                        text: "Application familiarity",
-                        font: { size: 11 },
+                        text:
+                          `<span style="font-weight:600">AI Knowledge level</span> (total n=${totalN})` +
+                          '<br><span style="font-size:11px; font-style:italic">mean / min / max across applications</span>',
                       },
+                      orientation: "v",
+                      y: 1.05,
+                      x: -0.12,
+                      xanchor: "left",
+                      yanchor: "top",
+                      font: { color: "#334155", size: radarLegendSize - 2 },
+                      bgcolor: "rgba(255,255,255,0.9)",
+                      bordercolor: "#e2e8f0",
+                      borderwidth: 1,
                     },
-                    angularaxis: {
-                      gridcolor: "#e2e8f0",
-                      linecolor: "#cbd5e1",
-                      showline: true,
-                      linewidth: 1.5,
-                      tickfont: {
-                        color: "#334155",
-                        size: radarTickFontSize,
-                      },
-                      ticklen: 8,
-                      ticks: "",
-                      direction: "clockwise",
-                      rotation: 90,
-                    },
-                  },
-                  // stacked so the visual columns match the range logic
-                  barmode: "stack",
-                  showlegend: true,
-                  legend: {
-                    title: {
-                      text:
-                        `AI Knowledge level (total n=${totalN})` +
-                        '<br><span style="font-size:11px">mean / min / max across applications</span>',
-                      font: { color: "#334155", size: radarLegendSize - 1 },
-                    },
-                    orientation: "v",
-                    y: 1.05,
-                    x: -0.12,
-                    xanchor: "left",
-                    yanchor: "top",
-                    font: { color: "#334155", size: radarLegendSize - 2 },
-                    bgcolor: "rgba(255,255,255,0.9)",
-                    bordercolor: "#e2e8f0",
-                    borderwidth: 1,
-                  },
-                  margin: { t: 90, l: 20, r: 40, b: 40 },
-                  paper_bgcolor: "rgba(0,0,0,0)",
-                  plot_bgcolor: "rgba(0,0,0,0)",
-                }}
-                style={{ width: "100%", height: "100%" }}
-                config={{ displayModeBar: false }}
-              />
+                    margin: { t: 40, l: 20, r: 40, b: 40 },
+                    paper_bgcolor: "rgba(0,0,0,0)",
+                    plot_bgcolor: "rgba(0,0,0,0)",
+                  }}
+                  style={{ width: "100%", height: "100%" }}
+                  config={{ displayModeBar: false }}
+                />
+              </div>
             )}
-
           </>
         )}
       </div>
@@ -1284,482 +1327,491 @@ const KnowledgeFunctionalityChart: React.FC<{
 // Open-text helper components (AI analysis visualizations)
 // -------------------------
 
-type OpenTextData = {
-  sentiment: { labels: string[]; counts: number[] };
-  topics: { labels: string[]; counts: number[] };
+// --- Types for the new API ---
+type SentimentFine =
+  | "very_negative"
+  | "negative"
+  | "mixed"
+  | "positive"
+  | "very_positive"
+  | "neutral";
+
+type OpenTextItem = {
+  row_id: number;
+  sentiment: "negative" | "neutral" | "positive";
+  sentiment_fine: SentimentFine;
+  cluster_id: number;
+  cluster_label: string;
+  main_topics: string[];
+  english_text: string;
 };
 
-const OpenTextPerceptionsOpportunities: React.FC<{ facultyName: string }> = ({ facultyName }) => {
-  const [data, setData] = useState<OpenTextData>({
-    sentiment: { labels: [], counts: [] },
-    topics: { labels: [], counts: [] },
-  });
-  const [loading, setLoading] = useState(false);
+type OpenTextItemsResponse = {
+  items: OpenTextItem[];
+};
+
+// canonical sentiment levels for the slider
+const SENTIMENT_LEVELS: {
+  id: SentimentFine;
+  label: string;
+  color: string;
+}[] = [
+  { id: "very_negative", label: "Very negative", color: "#b91c1c" },
+  { id: "negative", label: "Negative", color: "#f97316" },
+  { id: "mixed", label: "Mixed", color: "#0f172a" },
+  { id: "positive", label: "Positive", color: "#22c55e" },
+  { id: "very_positive", label: "Very positive", color: "#16a34a" },
+  { id: "neutral", label: "Neutral", color: "#6b7280" },
+];
+
+const DEFAULT_SENTIMENT_INDEX = (() => {
+  const idx = SENTIMENT_LEVELS.findIndex((s) => s.id === "mixed");
+  return idx >= 0 ? idx : 0;
+})();
+
+interface OpenTextBrowserProps {
+  facultyName: string;
+  endpoint: string; // e.g. "/api/open_text/perceptions/opportunities/items"
+  title: string;
+  accentColor: string;
+  subtitle?: string;
+}
+
+/**
+ * Generic open-text browser
+ */
+const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
+  facultyName,
+  endpoint,
+  title,
+  accentColor,
+  subtitle,
+}) => {
+  const [items, setItems] = useState<OpenTextItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // sentiment as discrete slider index
+  const [sentimentIndex, setSentimentIndex] = useState<number>(
+    DEFAULT_SENTIMENT_INDEX
+  );
+  const [selectedCluster, setSelectedCluster] = useState<string>("All");
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+
+  const selectedSentiment: SentimentFine =
+    SENTIMENT_LEVELS[sentimentIndex]?.id ??
+    SENTIMENT_LEVELS[DEFAULT_SENTIMENT_INDEX].id;
+
+  // gradient blocks centered under the slider stops
+  const sentimentGradient = React.useMemo(() => {
+    const n = SENTIMENT_LEVELS.length;
+    if (n === 0) return "#e5e7eb";
+
+    const valuePct = (i: number) => (i / (n - 1)) * 100;
+    const stops: string[] = [];
+
+    for (let i = 0; i < n; i++) {
+      const color = SENTIMENT_LEVELS[i].color;
+      const left = i === 0 ? 0 : (valuePct(i - 1) + valuePct(i)) / 2;
+      const right = i === n - 1 ? 100 : (valuePct(i) + valuePct(i + 1)) / 2;
+      stops.push(`${color} ${left}%`, `${color} ${right}%`);
+    }
+
+    return `linear-gradient(to right, ${stops.join(", ")})`;
+  }, []);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
+
     const params = new URLSearchParams({ faculty: facultyName });
-    fetch(`${API_BASE}/api/open_text/perceptions/opportunities?${params.toString()}`, {
-      cache: "no-store",
-    })
-      .then((r) => r.json())
-      .then((d: OpenTextData) => {
-        setData({
-          sentiment: d?.sentiment ?? { labels: [], counts: [] },
-          topics: d?.topics ?? { labels: [], counts: [] },
-        });
+
+    fetch(`${API_BASE}${endpoint}?${params.toString()}`, { cache: "no-store" })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
       })
-      .catch(() =>
-        setData({
-          sentiment: { labels: [], counts: [] },
-          topics: { labels: [], counts: [] },
-        })
-      )
+      .then((d: OpenTextItemsResponse) => {
+        setItems(Array.isArray(d?.items) ? d.items : []);
+      })
+      .catch((err) => {
+        console.error("Error fetching open-text items:", err);
+        setError("Error fetching open-text data.");
+        setItems([]);
+      })
       .finally(() => setLoading(false));
-  }, [facultyName]);
+  }, [facultyName, endpoint]);
 
-  const hasData =
-    data.topics.labels.length > 0 || data.sentiment.labels.length > 0;
+  // All unique cluster labels from the data
+  const allClusters = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          items
+            .map((it) => it.cluster_label)
+            .filter((s) => typeof s === "string" && s.trim().length > 0)
+        )
+      ).sort((a, b) => a.localeCompare(b)),
+    [items]
+  );
 
-  if (loading) {
-    return (
-      <div className="w-full h-[280px] rounded-xl bg-slate-100 animate-pulse" />
+  // Topics available under current sentiment + cluster (NOT global)
+  const availableTopics = React.useMemo(() => {
+    let base = items.filter((it) => it.sentiment_fine === selectedSentiment);
+
+    if (selectedCluster !== "All") {
+      base = base.filter((it) => it.cluster_label === selectedCluster);
+    }
+
+    const topicSet = new Set<string>();
+    base.forEach((it) => {
+      (it.main_topics || []).forEach((t) => {
+        const trimmed = t?.trim();
+        if (trimmed) topicSet.add(trimmed);
+      });
+    });
+
+    return Array.from(topicSet).sort((a, b) => a.localeCompare(b));
+  }, [items, selectedSentiment, selectedCluster]);
+
+  // Trim selectedTopics when they disappear from the available set
+  useEffect(() => {
+    setSelectedTopics((prev) => prev.filter((t) => availableTopics.includes(t)));
+  }, [availableTopics]);
+
+  const totalItems = items.length;
+
+  // Filtering logic
+  const filteredItems = React.useMemo(() => {
+    let base = items.filter((it) => it.sentiment_fine === selectedSentiment);
+
+    if (selectedCluster !== "All") {
+      base = base.filter((it) => it.cluster_label === selectedCluster);
+    }
+
+    if (selectedTopics.length > 0) {
+      base = base.filter((it) =>
+        (it.main_topics || []).some((t) => selectedTopics.includes(t))
+      );
+    }
+
+    return base;
+  }, [items, selectedSentiment, selectedCluster, selectedTopics]);
+
+  const currentSentimentMeta = SENTIMENT_LEVELS[sentimentIndex];
+
+  const toggleTopic = (topic: string) => {
+    setSelectedTopics((prev) =>
+      prev.includes(topic)
+        ? prev.filter((t) => t !== topic)
+        : [...prev, topic]
     );
-  }
+  };
 
-  if (!hasData) {
-    return (
-      <div className="text-sm text-slate-500 text-center py-8">
-        No open-text data for this question in this faculty.
-      </div>
-    );
-  }
-
-  const HEIGHT = 260;
-  const MARGIN = { t: 10, l: 40, r: 10, b: 60 }; // <-- SAME for both
+  const handleClusterChange = (value: string) => {
+    setSelectedCluster(value);
+    // topics refine inside the selected cluster; do NOT clear them
+  };
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      {/* Topics / clusters */}
-      <div>
-        <h4 className="text-sm font-semibold text-emerald-700 mb-2">
-          Main recurrent topics
-        </h4>
-        <Plot
-          data={[
-            {
-              x: data.topics.labels,
-              y: data.topics.counts,
-              type: "bar" as const,
-              marker: { color: "#16a34a", opacity: 0.95 },
-              hovertemplate:
-                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-            },
-          ]}
-          layout={{
-            margin: MARGIN,
-            xaxis: { automargin: true },
-            yaxis: { title: "Responses", rangemode: "tozero" },
-            height: HEIGHT,
-            paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(0,0,0,0)",
-          }}
-          style={{ width: "100%", height: HEIGHT }}
-          config={{ displayModeBar: false }}
-        />
+    <div className="flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h4
+            className="text-sm font-semibold mb-1"
+            style={{ color: accentColor }}
+          >
+            {title}
+          </h4>
+          {subtitle && (
+            <p className="text-xs text-slate-500 max-w-xl">{subtitle}</p>
+          )}
+        </div>
+        {totalItems > 0 && (
+          <div className="text-xs text-slate-500">
+            {totalItems} analysed comments
+          </div>
+        )}
       </div>
 
-      {/* Sentiment */}
-      <div>
-        <h4 className="text-sm font-semibold text-emerald-700 mb-2">
-          Sentiment about opportunities & risks
-        </h4>
-        <Plot
-          data={[
-            {
-              x: data.sentiment.labels,
-              y: data.sentiment.counts,
-              type: "bar" as const,
-              marker: {
-                color: ["#ef4444", "#6b7280", "#22c55e"],
-              },
-              hovertemplate:
-                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-            },
-          ]}
-          layout={{
-            margin: MARGIN,                     // <-- SAME
-            xaxis: { automargin: true },
-            yaxis: { title: "Responses", rangemode: "tozero" },
-            height: HEIGHT,                     // <-- SAME
-            paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(0,0,0,0)",
-          }}
-          style={{ width: "100%", height: HEIGHT }}
-          config={{ displayModeBar: false }}
-        />
+      {/* Controls */}
+      <div className="space-y-3">
+                {/* Sentiment slider (always one selected) */}
+        <div>
+          <p className="text-xs font-medium text-slate-600 mb-1">Sentiment</p>
+
+          <div className="flex items-start gap-3">
+            {/* Slider + labels share the same width */}
+            <div className="flex-1 min-w-0 max-w-[970px]">
+              {/* SLIDER BAR */}
+              <input
+                type="range"
+                min={0}
+                max={SENTIMENT_LEVELS.length - 1}
+                step={1}
+                value={sentimentIndex}
+                onChange={(e) => setSentimentIndex(Number(e.target.value))}
+                className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                style={{
+                  background: sentimentGradient,
+                }}
+              />
+
+              {/* LABELS – centered under each stop, same width as slider */}
+                            <div className="relative mt-2 h-5 w-full">
+                {SENTIMENT_LEVELS.map((level, idx) => {
+                  const active = idx === sentimentIndex;
+
+                  // base linear position
+                  const basePct =
+                    (idx / (SENTIMENT_LEVELS.length - 1)) * 100;
+
+                  // tweak only the extremes if you want
+                  let leftPct = basePct;
+                  if (idx === 0) {
+                    // shift "Very negative" a bit to the right
+                    leftPct = basePct + 4.5; //
+                  }
+                  // if one day you want to nudge "Neutral" or the right end:
+                  // if (idx === SENTIMENT_LEVELS.length - 1) leftPct = basePct - 3;
+
+                  return (
+                    <button
+                      key={level.id}
+                      type="button"
+                      onClick={() => setSentimentIndex(idx)}
+                      className={`absolute top-0 -translate-x-1/2 text-[11px] md:text-xs font-medium whitespace-nowrap transition-colors ${
+                        active
+                          ? "text-slate-900"
+                          : "text-slate-400 hover:text-slate-700"
+                      }`}
+                      style={{ left: `${leftPct}%` }}
+                    >
+                      {level.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Sentiment pill – does NOT affect slider width now */}
+            <span
+              className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
+              style={{
+                backgroundColor: currentSentimentMeta.color + "20",
+                color: currentSentimentMeta.color,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {currentSentimentMeta.label}
+            </span>
+          </div>
+        </div>
+        {/* Cluster + topics (topics nest inside sentiment+cluster) */}
+        <div className="flex flex-col md:flex-row gap-4 md:items-start">
+          {/* Cluster selector */}
+          <div className="w-full md:w-1/3">
+            <p className="text-xs font-medium text-slate-600 mb-1">
+              Cluster label
+            </p>
+            <select
+              value={selectedCluster}
+              onChange={(e) => handleClusterChange(e.target.value)}
+              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-700 shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+            >
+              <option value="All">All clusters</option>
+              {allClusters.map((cl) => (
+                <option key={cl} value={cl}>
+                  {cl}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Topic pills */}
+          <div className="flex-1">
+            <p className="text-xs font-medium text-slate-600 mb-1">
+              Topics (refine within sentiment &amp; cluster)
+            </p>
+            {availableTopics.length === 0 ? (
+              <p className="text-xs text-slate-400">
+                No topics available for the current filters.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {availableTopics.map((topic) => {
+                  const active = selectedTopics.includes(topic);
+                  return (
+                    <button
+                      key={topic}
+                      onClick={() => toggleTopic(topic)}
+                      className={`text-[11px] px-2.5 py-1 rounded-full border transition-all ${
+                        active
+                          ? "shadow-sm bg-slate-800 text-white"
+                          : "bg-white hover:bg-slate-50 text-slate-700"
+                      }`}
+                      style={{
+                        borderColor: active ? "#0f172a" : "#e5e7eb",
+                      }}
+                    >
+                      {topic}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+
+      {/* Content */}
+      <div className="mt-2">
+        {loading && (
+          <div className="w-full h-[220px] rounded-xl bg-slate-100 animate-pulse" />
+        )}
+
+        {!loading && error && (
+          <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && totalItems === 0 && (
+          <div className="text-xs text-slate-500 text-center py-6">
+            No open-text data for this faculty and question.
+          </div>
+        )}
+
+        {!loading && !error && totalItems > 0 && filteredItems.length === 0 && (
+          <div className="text-xs text-slate-500 text-center py-6">
+            No comments match the current filters.
+          </div>
+        )}
+
+        {!loading && !error && filteredItems.length > 0 && (
+          <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+            {filteredItems.map((it) => {
+              const meta =
+                SENTIMENT_LEVELS.find((s) => s.id === it.sentiment_fine) ||
+                currentSentimentMeta;
+
+              return (
+                <div
+                  key={it.row_id}
+                  className="rounded-xl border bg-white px-3 py-2.5 text-xs text-slate-700 shadow-sm"
+                  style={{
+                    borderColor: meta.color + "55",
+                  }}
+                >
+                  <div className="flex justify-between items-start gap-2 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
+                        style={{
+                          backgroundColor: meta.color + "20",
+                          color: meta.color,
+                        }}
+                      >
+                        {meta.label}
+                      </span>
+                      {it.cluster_label && (
+                        <span className="text-[11px] text-slate-500 italic">
+                          {it.cluster_label}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-400">
+                      ID: {it.row_id}
+                    </span>
+                  </div>
+
+                  {it.main_topics && it.main_topics.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      {it.main_topics.map((t) => (
+                        <span
+                          key={t}
+                          className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-slate-100 text-[10px] text-slate-600 border border-slate-200"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <p className="text-[11px] leading-snug">
+                    {it.english_text || (
+                      <span className="italic text-slate-400">
+                        [no English text]
+                      </span>
+                    )}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-const OpenTextPerceptionsPositioning: React.FC<{ facultyName: string }> = ({ facultyName }) => {
-  const [data, setData] = useState<OpenTextData>({
-    sentiment: { labels: [], counts: [] },
-    topics: { labels: [], counts: [] },
-  });
-  const [loading, setLoading] = useState(false);
+// Now tiny wrappers per question, pointing to the right endpoint.
 
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ faculty: facultyName });
-    fetch(`${API_BASE}/api/open_text/perceptions/positioning?${params.toString()}`, {
-      cache: "no-store",
-    })
-      .then((r) => r.json())
-      .then((d: OpenTextData) => {
-        setData({
-          sentiment: d?.sentiment ?? { labels: [], counts: [] },
-          topics: d?.topics ?? { labels: [], counts: [] },
-        });
-      })
-      .catch(() =>
-        setData({
-          sentiment: { labels: [], counts: [] },
-          topics: { labels: [], counts: [] },
-        })
-      )
-      .finally(() => setLoading(false));
-  }, [facultyName]);
-
-  const hasData =
-    data.topics.labels.length > 0 || data.sentiment.labels.length > 0;
-
-  if (loading) {
-    return (
-      <div className="w-full h-[260px] rounded-xl bg-slate-100 animate-pulse" />
-    );
-  }
-
-  if (!hasData) {
-    return (
-      <div className="text-sm text-slate-500 text-center py-6">
-        No open-text data for this question in this faculty.
-      </div>
-    );
-  }
-
-  const HEIGHT = 300;
-  const MARGIN = { t: 10, l: 40, r: 10, b: 60 }; // unified
-
+const OpenTextPerceptionsOpportunities: React.FC<{ facultyName: string }> = ({
+  facultyName,
+}) => {
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <div>
-        <h4 className="text-sm font-semibold text-emerald-700 mb-2">
-          Main reasons behind their positioning
-        </h4>
-        <Plot
-          data={[
-            {
-              x: data.topics.labels,
-              y: data.topics.counts,
-              type: "bar" as const,
-              marker: { color: "#16a34a", opacity: 0.95 },
-              hovertemplate: "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-            },
-          ]}
-          layout={{
-            margin: MARGIN,
-            xaxis: {
-              automargin: true,
-              tickfont: {
-                size: 10,        // <= make labels smaller (try 8–10)
-                family: "Inter, sans-serif", // optional
-              },
-            },
-            yaxis: { title: "Responses", rangemode: "tozero" },
-            height: HEIGHT,
-            paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(0,0,0,0)",
-          }}
-          style={{ width: "100%", height: HEIGHT }}
-          config={{ displayModeBar: false }}
-        />
-      </div>
-      <div>
-        <h4 className="text-sm font-semibold text-emerald-700 mb-2">
-          Sentiment of these reasons
-        </h4>
-        <Plot
-          data={[
-            {
-              x: data.sentiment.labels,
-              y: data.sentiment.counts,
-              type: "bar" as const,
-              marker: {
-                color: ["#ef4444", "#6b7280", "#22c55e"],
-              },
-              hovertemplate:
-                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-            },
-          ]}
-          layout={{
-            margin: MARGIN,
-            xaxis: { automargin: true },
-            yaxis: { title: "Responses", rangemode: "tozero" },
-            height: HEIGHT,
-            paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(0,0,0,0)",
-          }}
-          style={{ width: "100%", height: HEIGHT }}
-          config={{ displayModeBar: false }}
-        />
-      </div>
-    </div>
+    <OpenTextBrowser
+      facultyName={facultyName}
+      endpoint="/api/open_text/perceptions/opportunities/items"
+      title="Opportunities and risks – open text answers"
+      accentColor="#15803d"
+      subtitle="Filtered answers to the open question about opportunities and risks of AI at university."
+    />
   );
 };
 
-
-const OpenTextTrainingOtherNeeds: React.FC<{ facultyName: string }> = ({ facultyName }) => {
-  const [data, setData] = useState<OpenTextData>({
-    sentiment: { labels: [], counts: [] },
-    topics: { labels: [], counts: [] },
-  });
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ faculty: facultyName });
-    fetch(`${API_BASE}/api/open_text/training/other_needs?${params.toString()}`, {
-      cache: "no-store",
-    })
-      .then((r) => r.json())
-      .then((d: OpenTextData) => {
-        setData({
-          sentiment: d?.sentiment ?? { labels: [], counts: [] },
-          topics: d?.topics ?? { labels: [], counts: [] },
-        });
-      })
-      .catch(() =>
-        setData({
-          sentiment: { labels: [], counts: [] },
-          topics: { labels: [], counts: [] },
-        })
-      )
-      .finally(() => setLoading(false));
-  }, [facultyName]);
-
-  const hasData =
-    data.topics.labels.length > 0 || data.sentiment.labels.length > 0;
-
-  if (loading) {
-    return (
-      <div className="w-full h-[260px] rounded-xl bg-slate-100 animate-pulse" />
-    );
-  }
-
-  if (!hasData) {
-    return (
-      <div className="text-sm text-slate-500 text-center py-6">
-        No additional training needs described for this faculty.
-      </div>
-    );
-  }
-
-  const HEIGHT = 240;
-  const MARGIN = { t: 10, l: 40, r: 10, b: 60 };
-
+const OpenTextPerceptionsPositioning: React.FC<{ facultyName: string }> = ({
+  facultyName,
+}) => {
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <div>
-        <h4 className="text-sm font-semibold text-amber-700 mb-2">
-          Other training needs (topics)
-        </h4>
-        <Plot
-          data={[
-            {
-              x: data.topics.labels,
-              y: data.topics.counts,
-              type: "bar" as const,
-              marker: { color: "#b45309", opacity: 0.95 },
-              hovertemplate:
-                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-            },
-          ]}
-          layout={{
-            margin: MARGIN,
-            xaxis: { automargin: true },
-            yaxis: { title: "Responses", rangemode: "tozero" },
-            height: HEIGHT,
-            paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(0,0,0,0)",
-          }}
-          style={{ width: "100%", height: HEIGHT }}
-          config={{ displayModeBar: false }}
-        />
-      </div>
-      <div>
-        <h4 className="text-sm font-semibold text-amber-700 mb-2">
-          Sentiment about these needs
-        </h4>
-        <Plot
-          data={[
-            {
-              x: data.sentiment.labels,
-              y: data.sentiment.counts,
-              type: "bar" as const,
-              marker: {
-                color: ["#ef4444", "#6b7280", "#22c55e"],
-              },
-              hovertemplate:
-                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-            },
-          ]}
-          layout={{
-            margin: MARGIN,
-            xaxis: { automargin: true },
-            yaxis: { title: "Responses", rangemode: "tozero" },
-            height: HEIGHT,
-            paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(0,0,0,0)",
-          }}
-          style={{ width: "100%", height: HEIGHT }}
-          config={{ displayModeBar: false }}
-        />
-      </div>
-    </div>
+    <OpenTextBrowser
+      facultyName={facultyName}
+      endpoint="/api/open_text/perceptions/positioning/items"
+      title="Reasons behind their positioning"
+      accentColor="#15803d"
+      subtitle="How teachers justify their positioning towards AI in teaching and evaluation."
+    />
   );
 };
 
+const OpenTextTrainingOtherNeeds: React.FC<{ facultyName: string }> = ({
+  facultyName,
+}) => {
+  return (
+    <OpenTextBrowser
+      facultyName={facultyName}
+      endpoint="/api/open_text/training/other_needs/items"
+      title="Other training needs (open text)"
+      accentColor="#b45309"
+      subtitle="Additional training needs described by teachers, beyond the predefined options."
+    />
+  );
+};
 
 const CommentsSection: React.FC<{ facultyName: string }> = ({ facultyName }) => {
-  const [data, setData] = useState<OpenTextData>({
-    sentiment: { labels: [], counts: [] },
-    topics: { labels: [], counts: [] },
-  });
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ faculty: facultyName });
-    fetch(`${API_BASE}/api/open_text/comments?${params.toString()}`, {
-      cache: "no-store",
-    })
-      .then((r) => r.json())
-      .then((d: OpenTextData) => {
-        setData({
-          sentiment: d?.sentiment ?? { labels: [], counts: [] },
-          topics: d?.topics ?? { labels: [], counts: [] },
-        });
-      })
-      .catch(() =>
-        setData({
-          sentiment: { labels: [], counts: [] },
-          topics: { labels: [], counts: [] },
-        })
-      )
-      .finally(() => setLoading(false));
-  }, [facultyName]);
-
-  const hasData =
-    data.topics.labels.length > 0 || data.sentiment.labels.length > 0;
-
-  const HEIGHT = 260;
-  const MARGIN = { t: 10, l: 40, r: 10, b: 60 };
-
-  if (loading) {
-    return (
-      <div className="w-full h-[280px] rounded-xl bg-slate-100 animate-pulse" />
-    );
-  }
-
-  if (!hasData) {
-    return (
-      <div className="text-sm text-slate-500 text-center py-10">
-        No general comments for this faculty.
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3">
-        <div className="p-3 rounded-xl bg-sky-100 text-sky-600">
-          <MessageSquare className="w-6 h-6" />
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-slate-800">
-            General comments on AI and the survey
-          </h3>
-          <p className="text-xs text-slate-500">
-            Aggregated themes and sentiment from the COMENTARIS field.
-          </p>
-        </div>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <div>
-          <h4 className="text-sm font-semibold text-sky-700 mb-2">
-            Main themes
-          </h4>
-          <Plot
-            data={[
-              {
-                x: data.topics.labels,
-                y: data.topics.counts,
-                type: "bar" as const,
-                marker: { color: "#0ea5e9", opacity: 0.95 },
-                hovertemplate:
-                  "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-              },
-            ]}
-            layout={{
-              margin: MARGIN,
-              xaxis: { automargin: true },
-              yaxis: { title: "Responses", rangemode: "tozero" },
-              height: HEIGHT,
-              paper_bgcolor: "rgba(0,0,0,0)",
-              plot_bgcolor: "rgba(0,0,0,0)",
-            }}
-            style={{ width: "100%", height: HEIGHT }}
-            config={{ displayModeBar: false }}
-          />
-        </div>
-
-        <div>
-          <h4 className="text-sm font-semibold text-sky-700 mb-2">
-            Sentiment
-          </h4>
-          <Plot
-            data={[
-              {
-                x: data.sentiment.labels,
-                y: data.sentiment.counts,
-                type: "bar" as const,
-                marker: {
-                  color: ["#ef4444", "#6b7280", "#22c55e"],
-                },
-                hovertemplate:
-                  "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-              },
-            ]}
-            layout={{
-              margin: MARGIN,
-              xaxis: { automargin: true },
-              yaxis: { title: "Responses", rangemode: "tozero" },
-              height: HEIGHT,
-              paper_bgcolor: "rgba(0,0,0,0)",
-              plot_bgcolor: "rgba(0,0,0,0)",
-            }}
-            style={{ width: "100%", height: HEIGHT }}
-            config={{ displayModeBar: false }}
-          />
-        </div>
-      </div>
-    </div>
+    <OpenTextBrowser
+      facultyName={facultyName}
+      endpoint="/api/open_text/comments/items"
+      title="General comments on AI and the survey"
+      accentColor="#0ea5e9"
+      subtitle="Free comments and meta-comments from the end of the survey."
+    />
   );
 };
-
 
 // -------------------------
 // Faculty Visualization Layout

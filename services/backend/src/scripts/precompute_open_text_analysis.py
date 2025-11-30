@@ -9,7 +9,9 @@ from src.utils.open_text_agent import (
     QUESTION_TOPICS,
     FINE_TO_COARSE,
     call_llm_for_open_text,
+    is_trivial_short_answer,
 )
+
 
 def _analyze_single_text(text: str, column_id: str) -> dict:
     """
@@ -17,20 +19,34 @@ def _analyze_single_text(text: str, column_id: str) -> dict:
 
     Returns:
         {
-            "sentiment": ...,
-            "sentiment_fine": ...,
+            "sentiment": ... (coarse)
+            "sentiment_fine": ... (canonical 6-way)
             "cluster_id": ...,
             "cluster_label": ...,
             "main_topics": [...],
+            "english_text": "...",
         }
     """
     if not text or not str(text).strip():
+        # empty text → we skip it at caller level anyway, but keep a safe fallback
         return {
             "sentiment": "neutral",
-            "sentiment_fine": "empty",
+            "sentiment_fine": "neutral",
             "cluster_id": -1,
             "cluster_label": "No content",
             "main_topics": [],
+            "english_text": "",
+        }
+
+    # TRIVIAL ONE-WORD ANSWERS: do NOT call the LLM
+    if is_trivial_short_answer(text):
+        return {
+            "sentiment": "neutral",
+            "sentiment_fine": "neutral",
+            "cluster_id": -1,
+            "cluster_label": "No content (short answer)",
+            "main_topics": [],
+            "english_text": text,
         }
 
     result = call_llm_for_open_text(str(text), column_id)
@@ -41,7 +57,10 @@ def _analyze_single_text(text: str, column_id: str) -> dict:
         "cluster_id": result["cluster_id"],
         "cluster_label": result["cluster_label"],
         "main_topics": result["main_topics"],
+        "english_text": result["english_text"],
     }
+
+
 def analyze_column(df: pd.DataFrame, text_col: str, question_id: str) -> pd.DataFrame:
     if text_col not in df.columns:
         print(f"[ERROR] Column '{text_col}' NOT in dataframe for question_id='{question_id}'.")
@@ -49,6 +68,7 @@ def analyze_column(df: pd.DataFrame, text_col: str, question_id: str) -> pd.Data
 
     n_total = 0
     n_nonempty = 0
+    n_skipped_trivial = 0
     rows = []
 
     for _, row in df.iterrows():
@@ -56,11 +76,18 @@ def analyze_column(df: pd.DataFrame, text_col: str, question_id: str) -> pd.Data
         text = row.get(text_col)
 
         if pd.isna(text) or not str(text).strip():
+            # completely empty → ignore
             continue
 
+        text_str = str(text)
         n_nonempty += 1
 
-        res = _analyze_single_text(str(text), question_id)
+        # Skip trivial one-word junk *entirely* (they won't appear in the parquet)
+        if is_trivial_short_answer(text_str):
+            n_skipped_trivial += 1
+            continue
+
+        res = _analyze_single_text(text_str, question_id)
         rows.append(
             OpenTextRowAnalysis(
                 row_id=int(row["row_id"]),
@@ -69,13 +96,14 @@ def analyze_column(df: pd.DataFrame, text_col: str, question_id: str) -> pd.Data
                 cluster_id=int(res["cluster_id"]),
                 cluster_label=str(res["cluster_label"]),
                 main_topics=res["main_topics"],
+                english_text=res["english_text"],
             )
         )
 
     print(
         f"[STATS] {question_id}: total rows={n_total}, "
-        f"non-empty texts={n_nonempty}, analyzed={len(rows)} "
-        f"from column '{text_col}'"
+        f"non-empty texts={n_nonempty}, skipped_trivial={n_skipped_trivial}, "
+        f"analyzed={len(rows)} from column '{text_col}'"
     )
 
     return OpenTextColumnAnalysis(question_id=question_id, rows=rows).to_dataframe()

@@ -11,8 +11,7 @@ const UsesStudentsFunctionalityChart: React.FC<{
     useState<"bar" | "heatmap" | "spider">("spider");
 
   // Spider variant toggle (area radar vs bar spider)
-  const [spiderMode, setSpiderMode] =
-    useState<"area" | "bars">("area");
+  const [spiderMode, setSpiderMode] = useState<"area" | "bars">("area");
 
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -192,32 +191,31 @@ const UsesStudentsFunctionalityChart: React.FC<{
   }, [orderedProposalLabels, rowByLabel, funcLabels]);
 
   // >>> dynamic range for bar spider based on stacked column sums <<<
-const maxRadialValue = useMemo(() => {
-  if (!matrix.length) return 4; // fallback
+  const maxRadialValue = useMemo(() => {
+    if (!matrix.length) return 4; // fallback
 
-  const numTasks = matrix[0].length;
-  let globalMax = 0;
+    const numTasks = matrix[0].length;
+    let globalMax = 0;
 
-  for (let j = 0; j < numTasks; j++) {
-    let colSum = 0;
+    for (let j = 0; j < numTasks; j++) {
+      let colSum = 0;
 
-    for (let i = 0; i < matrix.length; i++) {
-      const v = matrix[i][j];
-      if (typeof v === "number" && isFinite(v)) {
-        colSum += v;
+      for (let i = 0; i < matrix.length; i++) {
+        const v = matrix[i][j];
+        if (typeof v === "number" && isFinite(v)) {
+          colSum += v;
+        }
+      }
+
+      if (colSum > globalMax) {
+        globalMax = colSum;
       }
     }
 
-    if (colSum > globalMax) {
-      globalMax = colSum;
-    }
-  }
-
-  if (!isFinite(globalMax) || globalMax <= 0) return 4;
-  return Math.ceil(globalMax); // closest bigger integer
-}, [matrix]);
-// <<< END dynamic range >>>
-
+    if (!isFinite(globalMax) || globalMax <= 0) return 4;
+    return Math.ceil(globalMax); // closest bigger integer
+  }, [matrix]);
+  // <<< END dynamic range >>>
 
   // purples (same family as Uses)
   const barColors = [
@@ -250,6 +248,93 @@ const maxRadialValue = useMemo(() => {
     Often: "#9333ea",
     "Very often": "#c084fc",
   };
+
+  // ---------- Legend helpers (mirror Knowledge / Uses spider) ----------
+  const formatProposalLegendName = useCallback(
+    (
+      label: string,
+      n: number,
+      pct: number,
+      mean: number,
+      min: number,
+      max: number
+    ) => {
+      const safeN = Number.isFinite(n) ? n : 0;
+      const safePct = Number.isFinite(pct) ? pct : 0;
+      const safeMean = Number.isFinite(mean) ? mean : 0;
+      const safeMin = Number.isFinite(min) ? min : 0;
+      const safeMax = Number.isFinite(max) ? max : 0;
+
+      return [
+        `<span style="font-weight:600">${label}</span>`,
+        `<span style="font-size:11px; color:#4b5563">n=${safeN} · ${safePct.toFixed(
+          1
+        )}% · μ=${safeMean.toFixed(2)} [${safeMin.toFixed(
+          2
+        )}–${safeMax.toFixed(2)}]</span>`,
+      ].join("<br>");
+    },
+    []
+  );
+
+  const proposalLegendTitleText = useMemo(
+    () =>
+      `<span style="font-weight:600">AI proposal level</span> (total n=${totalN})` +
+      '<br><span style="font-size:11px; font-style:italic">mean / min / max across tasks</span>',
+    [totalN]
+  );
+  // --------------------------------------------------------------
+
+  // ---- Title + custom tooltip (same style as Knowledge / Uses) ----
+  const studentsTitleText = "Where do you propose AI use to students?";
+
+  const StudentsTitleWithTooltip: React.FC<{ label: string }> = ({
+    label,
+  }) => (
+    <div className="flex items-center justify-center mb-1">
+      <div className="relative inline-flex items-center gap-1 group">
+        <span
+          className="text-slate-800 font-semibold"
+          style={{ fontSize: barTitleSize }}
+        >
+          {label}
+        </span>
+        <span className="inline-flex items-center justify-center w-4 h-4 text-[11px] rounded-full border border-purple-400 text-purple-700 bg-purple-50 font-semibold cursor-help leading-none">
+          ?
+        </span>
+        {/* Custom tooltip */}
+        <div className="pointer-events-none absolute left-1/2 top-full z-10 hidden w-[320px] -translate-x-1/2 translate-y-2 rounded-md bg-purple-50 px-3 py-2 text-xs text-slate-700 shadow-lg ring-1 ring-purple-200 group-hover:block">
+          <p className="font-semibold mb-1 text-purple-900">
+            How to read this chart
+          </p>
+          <p className="mb-1">Original survey questions:</p>
+          <ul className="list-disc pl-4 space-y-0.5 mb-2">
+            <li>
+              <span className="font-medium">
+                “Do you ask or suggest your students to use AI tools?”
+              </span>{" "}
+              Answers range from never to very often.
+            </li>
+            <li>
+              <span className="font-medium">
+                “For which types of tasks do you propose AI tools to your
+                students?”
+              </span>{" "}
+              for each task shown on the axes.
+            </li>
+          </ul>
+          <p className="mb-1 font-medium">Numeric scale used for averages:</p>
+          <ul className="list-disc pl-4 space-y-0.5">
+            <li>1 = Never</li>
+            <li>2 = Sometimes</li>
+            <li>3 = Often</li>
+            <li>4 = Very often</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+  // --------------------------------------------------------------
 
   return (
     <div>
@@ -365,7 +450,8 @@ const maxRadialValue = useMemo(() => {
             {chartFamily === "bar" && (
               <>
                 {/* TOP: grouped bar (tasks × proposal levels) */}
-                <div className="flex-1">
+                <div className="flex-1 flex flex-col">
+                  <StudentsTitleWithTooltip label={studentsTitleText} />
                   <Plot
                     data={funcLabels.map((taskLabel, i) => ({
                       x: orderedProposalLabels,
@@ -380,11 +466,7 @@ const maxRadialValue = useMemo(() => {
                     }))}
                     layout={{
                       barmode: "group",
-                      title: {
-                        text: "Where do you propose AI use to students?",
-                        y: 0.96,
-                        font: { size: barTitleSize },
-                      },
+                      title: { text: "" }, // external React title + tooltip
                       xaxis: { tickfont: { size: radarTickFontSize } },
                       yaxis: {
                         title: { text: "Avg Frequency (1–4)" },
@@ -403,7 +485,7 @@ const maxRadialValue = useMemo(() => {
                         bordercolor: "#e2e8f0",
                         borderwidth: 1,
                       },
-                      margin: { t: 80, l: 60, r: 30, b: 80 },
+                      margin: { t: 40, l: 60, r: 30, b: 80 },
                       paper_bgcolor: "rgba(0,0,0,0)",
                       plot_bgcolor: "rgba(0,0,0,0)",
                     }}
@@ -528,231 +610,227 @@ const maxRadialValue = useMemo(() => {
             )}
 
             {chartFamily === "heatmap" && (
-              <Plot
-                data={[
-                  {
-                    z: matrix,
-                    x: funcLabels,
-                    y: orderedProposalLabels,
-                    type: "heatmap",
-                    colorscale: purplesScale,
-                    colorbar: { title: { text: "Avg Frequency" } },
-                    hovertemplate:
-                      `<b>Proposal Frequency:</b> %{y}<br><b>Task:</b> %{x}` +
-                      `<br><b>Avg Frequency:</b> %{z:.2f}<extra></extra>`,
-                  },
-                ]}
-                layout={{
-                  title: {
-                    text: "Where do you propose AI use to students?",
-                    y: 0.96,
-                    font: { size: barTitleSize },
-                  },
-                  yaxis: {
-                    autorange: "reversed",
-                    tickfont: { size: radarTickFontSize },
-                  },
-                  xaxis: { tickfont: { size: 11 } },
-                  margin: { t: 110, l: 110, r: 0, b: 110 },
-                  paper_bgcolor: "rgba(0,0,0,0)",
-                  plot_bgcolor: "rgba(0,0,0,0)",
-                  font: { color: "#334155" },
-                }}
-                config={{ displayModeBar: false }}
-                style={{ width: "95%", height: "100%" }}
-              />
+              <div className="flex-1 flex flex-col items-center">
+                <StudentsTitleWithTooltip label={studentsTitleText} />
+                <Plot
+                  data={[
+                    {
+                      z: matrix,
+                      x: funcLabels,
+                      y: orderedProposalLabels,
+                      type: "heatmap",
+                      colorscale: purplesScale,
+                      colorbar: { title: { text: "Avg Frequency" } },
+                      hovertemplate:
+                        `<b>Proposal Frequency:</b> %{y}<br><b>Task:</b> %{x}` +
+                        `<br><b>Avg Frequency:</b> %{z:.2f}<extra></extra>`,
+                    },
+                  ]}
+                  layout={{
+                    title: { text: "" },
+                    yaxis: {
+                      autorange: "reversed",
+                      tickfont: { size: radarTickFontSize },
+                    },
+                    xaxis: { tickfont: { size: 11 } },
+                    margin: { t: 40, l: 110, r: 0, b: 110 },
+                    paper_bgcolor: "rgba(0,0,0,0)",
+                    plot_bgcolor: "rgba(0,0,0,0)",
+                    font: { color: "#334155" },
+                  }}
+                  config={{ displayModeBar: false }}
+                  style={{ width: "95%", height: "100%" }}
+                />
+              </div>
             )}
 
             {chartFamily === "spider" && spiderMode === "area" && (
-              <Plot
-                data={radarOrder.map((lbl) => {
-                  const color = radarColors[lbl] || "#6b21a8";
+              <div className="flex-1 flex flex-col">
+                <StudentsTitleWithTooltip label={studentsTitleText} />
+                <Plot
+                  data={radarOrder.map((lbl) => {
+                    const color = radarColors[lbl] || "#6b21a8";
 
-                  const row = rowByLabel[lbl];
-                  const rVals = funcLabels.map((task) => row[task]);
+                    const row = rowByLabel[lbl];
+                    const rVals = funcLabels.map((task) => row[task]);
 
-                  const n = row?.n ?? 0;
-                  const pct = row?.pct ?? 0;
-                  const mean = row?.group_mean ?? 0;
-                  const min = row?.group_min ?? 0;
-                  const max = row?.group_max ?? 0;
+                    const n = row?.n ?? 0;
+                    const pct = row?.pct ?? 0;
+                    const mean = row?.group_mean ?? 0;
+                    const min = row?.group_min ?? 0;
+                    const max = row?.group_max ?? 0;
 
-                  // multi-line legend label, compact
-                  const legendName = [
-                    lbl,
-                    `n=${n} · ${pct.toFixed(1)}%`,
-                    `μ=${mean.toFixed(2)} · min=${min.toFixed(
-                      2
-                    )} · max=${max.toFixed(2)}`,
-                  ].join("<br>");
+                    const legendName = formatProposalLegendName(
+                      lbl,
+                      n,
+                      pct,
+                      mean,
+                      min,
+                      max
+                    );
 
-                  return {
-                    type: "scatterpolar" as const,
-                    r: rVals.concat(rVals[0]),
-                    theta: funcLabels.concat(funcLabels[0]),
-                    fill: "toself",
-                    name: legendName,
-                    line: { color, width: 3 },
-                    fillcolor: color + "40",
-                    hovertemplate:
-                      `<b>%{theta}</b><br>Proposal Level: <b>${lbl}</b>` +
-                      `<br>Avg Frequency: %{r:.2f}<extra></extra>`,
-                  };
-                })}
-                layout={{
-                  title: {
-                    text: "Where do you propose AI use to students?",
-                    font: { size: barTitleSize, color: "#334155" },
-                    y: 0.96,
-                  },
-                  polar: {
-                    bgcolor: "rgba(0,0,0,0)",
-                    radialaxis: {
-                      visible: true,
-                      showline: true,
-                      range: [0, 4],
-                      gridcolor: "#f1f5f9",
-                      gridwidth: 1.3,
-                      tickfont: { color: "#475569", size: 11 },
-                      tickangle: 0,
-                      ticksuffix: " ",
-                      title: {
-                        text: "Proposal frequency",
-                        font: { size: 11 },
+                    return {
+                      type: "scatterpolar" as const,
+                      r: rVals.concat(rVals[0]),
+                      theta: funcLabels.concat(funcLabels[0]),
+                      fill: "toself",
+                      name: legendName,
+                      line: { color, width: 3 },
+                      fillcolor: color + "40",
+                      hovertemplate:
+                        `<b>%{theta}</b><br>Proposal Level: <b>${lbl}</b>` +
+                        `<br>Avg Frequency: %{r:.2f}<extra></extra>`,
+                    };
+                  })}
+                  layout={{
+                    title: { text: "" },
+                    polar: {
+                      bgcolor: "rgba(0,0,0,0)",
+                      radialaxis: {
+                        visible: true,
+                        showline: true,
+                        range: [0, 4],
+                        gridcolor: "#f1f5f9",
+                        gridwidth: 1.3,
+                        tickfont: { color: "#475569", size: 11 },
+                        tickangle: 0,
+                        ticksuffix: " ",
+                        title: {
+                          text: "Proposal frequency",
+                          font: { size: 11 },
+                        },
+                      },
+                      angularaxis: {
+                        gridcolor: "#e2e8f0",
+                        linecolor: "#cbd5e1",
+                        showline: true,
+                        linewidth: 1.5,
+                        tickfont: { color: "#334155", size: radarTickFontSize },
+                        ticklen: 8,
+                        ticks: "",
+                        direction: "clockwise",
+                        rotation: 90,
                       },
                     },
-                    angularaxis: {
-                      gridcolor: "#e2e8f0",
-                      linecolor: "#cbd5e1",
-                      showline: true,
-                      linewidth: 1.5,
-                      tickfont: { color: "#334155", size: radarTickFontSize },
-                      ticklen: 8,
-                      ticks: "",
-                      direction: "clockwise",
-                      rotation: 90,
+                    showlegend: true,
+                    legend: {
+                      title: {
+                        text: proposalLegendTitleText,
+                        font: { color: "#334155", size: radarLegendSize - 1 },
+                      },
+                      orientation: "v",
+                      y: 1.05,
+                      x: -0.12,
+                      xanchor: "left",
+                      yanchor: "top",
+                      font: { color: "#334155", size: radarLegendSize - 2 },
+                      bgcolor: "rgba(255,255,255,0.9)",
+                      bordercolor: "#e2e8f0",
+                      borderwidth: 1,
                     },
-                  },
-                  showlegend: true,
-                  legend: {
-                    title: {
-                      text:
-                        `AI proposal level (total n=${totalN})` +
-                        '<br><span style="font-size:11px">mean / min / max across tasks</span>',
-                      font: { color: "#334155", size: radarLegendSize - 1 },
-                    },
-                    orientation: "v",
-                    y: 1.05,
-                    x: -0.12,
-                    xanchor: "left",
-                    yanchor: "top",
-                    font: { color: "#334155", size: radarLegendSize - 2 },
-                    bgcolor: "rgba(255,255,255,0.9)",
-                    bordercolor: "#e2e8f0",
-                    borderwidth: 1,
-                  },
-                  margin: { t: 90, l: 20, r: 40, b: 40 },
-                  paper_bgcolor: "rgba(0,0,0,0)",
-                  plot_bgcolor: "rgba(0,0,0,0)",
-                }}
-                style={{ width: "100%", height: "100%" }}
-                config={{ displayModeBar: false }}
-              />
+                    margin: { t: 40, l: 20, r: 40, b: 40 },
+                    paper_bgcolor: "rgba(0,0,0,0)",
+                    plot_bgcolor: "rgba(0,0,0,0)",
+                  }}
+                  style={{ width: "100%", height: "100%" }}
+                  config={{ displayModeBar: false }}
+                />
+              </div>
             )}
 
             {chartFamily === "spider" && spiderMode === "bars" && (
-              <Plot
-                data={radarOrder.map((lbl) => {
-                  const color = radarColors[lbl] || "#6b21a8";
-                  const row = rowByLabel[lbl];
-                  const rVals = funcLabels.map((task) => row[task]);
+              <div className="flex-1 flex flex-col">
+                <StudentsTitleWithTooltip label={studentsTitleText} />
+                <Plot
+                  data={radarOrder.map((lbl) => {
+                    const color = radarColors[lbl] || "#6b21a8";
+                    const row = rowByLabel[lbl];
+                    const rVals = funcLabels.map((task) => row[task]);
 
-                  const n   = row?.n ?? 0;
-                  const pct = row?.pct ?? 0;
-                  const mean = row?.group_mean ?? 0;
-                  const min  = row?.group_min ?? 0;
-                  const max  = row?.group_max ?? 0;
+                    const n = row?.n ?? 0;
+                    const pct = row?.pct ?? 0;
+                    const mean = row?.group_mean ?? 0;
+                    const min = row?.group_min ?? 0;
+                    const max = row?.group_max ?? 0;
 
-                  const legendName = [
-                    lbl,
-                    `n=${n} · ${pct.toFixed(1)}%`,
-                    `μ=${mean.toFixed(2)} · min=${min.toFixed(2)} · max=${max.toFixed(2)}`
-                  ].join("<br>");
+                    const legendName = formatProposalLegendName(
+                      lbl,
+                      n,
+                      pct,
+                      mean,
+                      min,
+                      max
+                    );
 
-                  return {
-                    type: "barpolar" as const,
-                    r: rVals,
-                    theta: funcLabels,
-                    name: legendName,
-                    marker: {
-                      color,
-                      line: { color: "#ffffff", width: 1 },
-                    },
-                    opacity: 0.95,
-                    hovertemplate:
-                      `<b>%{theta}</b><br>Proposal Level: <b>${lbl}</b>` +
-                      `<br>Avg Frequency: %{r:.2f}<extra></extra>`,
-                  };
-                })}
-                layout={{
-                  title: {
-                    text: "Where do you propose AI use to students?",
-                    font: { size: barTitleSize, color: "#334155" },
-                    y: 0.96,
-                  },
-                  polar: {
-                    bgcolor: "rgba(0,0,0,0)",
-                    radialaxis: {
-                      range: [0, maxRadialValue],  // <-- dynamic now
-                      visible: false,
-                      showline: false,
-                      gridcolor: "#f1f5f9",
-                      gridwidth: 1.3,
-                      showticklabels: false,
-                      ticks: "",
-                      title: {
-                        text: "Proposal frequency",
-                        font: { size: 11 },
+                    return {
+                      type: "barpolar" as const,
+                      r: rVals,
+                      theta: funcLabels,
+                      name: legendName,
+                      marker: {
+                        color,
+                        line: { color: "#ffffff", width: 1 },
+                      },
+                      opacity: 0.95,
+                      hovertemplate:
+                        `<b>%{theta}</b><br>Proposal Level: <b>${lbl}</b>` +
+                        `<br>Avg Frequency: %{r:.2f}<extra></extra>`,
+                    };
+                  })}
+                  layout={{
+                    title: { text: "" },
+                    polar: {
+                      bgcolor: "rgba(0,0,0,0)",
+                      radialaxis: {
+                        range: [0, maxRadialValue], // dynamic
+                        visible: false,
+                        showline: false,
+                        gridcolor: "#f1f5f9",
+                        gridwidth: 1.3,
+                        showticklabels: false,
+                        ticks: "",
+                        title: {
+                          text: "Proposal frequency",
+                          font: { size: 11 },
+                        },
+                      },
+                      angularaxis: {
+                        gridcolor: "#e2e8f0",
+                        linecolor: "#cbd5e1",
+                        showline: true,
+                        linewidth: 1.5,
+                        tickfont: { color: "#334155", size: radarTickFontSize },
+                        ticklen: 8,
+                        ticks: "",
+                        direction: "clockwise",
+                        rotation: 90,
                       },
                     },
-                    angularaxis: {
-                      gridcolor: "#e2e8f0",
-                      linecolor: "#cbd5e1",
-                      showline: true,
-                      linewidth: 1.5,
-                      tickfont: { color: "#334155", size: radarTickFontSize },
-                      ticklen: 8,
-                      ticks: "",
-                      direction: "clockwise",
-                      rotation: 90,
+                    barmode: "stack",
+                    showlegend: true,
+                    legend: {
+                      title: {
+                        text: proposalLegendTitleText,
+                        font: { color: "#334155", size: radarLegendSize - 1 },
+                      },
+                      orientation: "v",
+                      y: 1.05,
+                      x: -0.12,
+                      xanchor: "left",
+                      yanchor: "top",
+                      font: { color: "#334155", size: radarLegendSize - 2 },
+                      bgcolor: "rgba(255,255,255,0.9)",
+                      bordercolor: "#e2e8f0",
+                      borderwidth: 1,
                     },
-                  },
-                  barmode: "stack", // if you really want them stacked, use this
-                  showlegend: true,
-                  legend: {
-                    title: {
-                      text:
-                        `AI proposal level (total n=${totalN})` +
-                        '<br><span style="font-size:11px">mean / min / max across tasks</span>',
-                      font: { color: "#334155", size: radarLegendSize - 1 },
-                    },
-                    orientation: "v",
-                    y: 1.05,
-                    x: -0.12,
-                    xanchor: "left",
-                    yanchor: "top",
-                    font: { color: "#334155", size: radarLegendSize - 2 },
-                    bgcolor: "rgba(255,255,255,0.9)",
-                    bordercolor: "#e2e8f0",
-                    borderwidth: 1,
-                  },
-                  margin: { t: 90, l: 20, r: 40, b: 40 },
-                  paper_bgcolor: "rgba(0,0,0,0)",
-                  plot_bgcolor: "rgba(0,0,0,0)",
-                }}
-                style={{ width: "100%", height: "100%" }}
-                config={{ displayModeBar: false }}
-              />
+                    margin: { t: 40, l: 20, r: 40, b: 40 },
+                    paper_bgcolor: "rgba(0,0,0,0)",
+                    plot_bgcolor: "rgba(0,0,0,0)",
+                  }}
+                  style={{ width: "100%", height: "100%" }}
+                  config={{ displayModeBar: false }}
+                />
+              </div>
             )}
           </>
         )}

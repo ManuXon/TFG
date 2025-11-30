@@ -185,6 +185,100 @@ def _open_text_aggregates(question_id: str, faculty: Optional[str]) -> Dict[str,
         "sentiment": {"labels": sent_labels, "counts": sent_counts},
         "topics": {"labels": topic_labels, "counts": topic_counts},
     }
+def _open_text_items(question_id: str, faculty: Optional[str]) -> Dict[str, Any]:
+    """
+    Return row-level open-text analysis items for a given question_id,
+    optionally filtered by faculty name.
+
+    Each item has:
+      - row_id (int)
+      - sentiment (coarse: negative/neutral/positive)
+      - sentiment_fine (6-level canonical)
+      - cluster_id (int)
+      - cluster_label (str)
+      - main_topics (list[str])
+      - english_text (str)
+    """
+    if question_id not in OPEN_TEXT_ANALYSIS:
+        return {"items": []}
+
+    df_anal = OPEN_TEXT_ANALYSIS[question_id]
+    if df_anal.empty:
+        return {"items": []}
+
+    # Attach faculty_name via row_id
+    df_surv = SURVEYS_DF[["row_id", "faculty_name"]].copy()
+    df = df_anal.merge(df_surv, on="row_id", how="left")
+
+    if faculty:
+        fac_key = str(faculty).strip().lower()
+        df = df[df["faculty_name"].astype(str).str.strip().str.lower() == fac_key]
+
+    if df.empty:
+        return {"items": []}
+
+    # Sort for stable UI (cluster_id, then row_id)
+    sort_cols = [c for c in ["cluster_id", "row_id"] if c in df.columns]
+    if sort_cols:
+        df = df.sort_values(sort_cols)
+
+    def _safe_int(v, default: int = -1) -> int:
+        try:
+            if pd.isna(v):
+                return default
+            return int(v)
+        except Exception:
+            return default
+
+    def _safe_topics(v) -> List[str]:
+        if isinstance(v, list):
+            return [str(t).strip() for t in v if str(t).strip()]
+        if isinstance(v, str):
+            # Two cases: JSON-ish or comma-separated; keep it simple
+            s = v.strip()
+            if not s:
+                return []
+            # try naive JSON array
+            if s.startswith("[") and s.endswith("]"):
+                try:
+                    import json
+                    arr = json.loads(s)
+                    if isinstance(arr, list):
+                        return [str(t).strip() for t in arr if str(t).strip()]
+                except Exception:
+                    pass
+            # fallback: split by comma
+            return [p.strip() for p in s.split(",") if p.strip()]
+        return []
+
+    items: List[Dict[str, Any]] = []
+    for _, row in df.iterrows():
+        sentiment = str(row.get("sentiment", "neutral") or "neutral").strip().lower()
+        if sentiment not in {"negative", "neutral", "positive"}:
+            sentiment = "neutral"
+
+        sentiment_fine_raw = str(row.get("sentiment_fine", "") or "").strip()
+        sentiment_fine = sentiment_fine_raw if sentiment_fine_raw else sentiment
+
+        cluster_id = _safe_int(row.get("cluster_id", -1), default=-1)
+        cluster_label = str(row.get("cluster_label", "") or "").strip() or "Unclassified"
+
+        english_text = str(row.get("english_text", "") or "").strip()
+        main_topics = _safe_topics(row.get("main_topics", []))
+
+        items.append(
+            {
+                "row_id": _safe_int(row.get("row_id", -1), default=-1),
+                "sentiment": sentiment,
+                "sentiment_fine": sentiment_fine,
+                "cluster_id": cluster_id,
+                "cluster_label": cluster_label,
+                "main_topics": main_topics,
+                "english_text": english_text,
+            }
+        )
+
+    return {"items": items}
 
 
 
@@ -2183,3 +2277,44 @@ def open_text_general_comments(
 ) -> Dict[str, Any]:
     # COMENTARIS
     return _open_text_aggregates("comments", faculty)
+
+@router.get("/open_text/perceptions/opportunities/items")
+def open_text_perceptions_opportunities_items(
+    faculty: Optional[str] = Query(None, description="Faculty name (short EN)")
+) -> Dict[str, Any]:
+    """
+    Row-level items for: PER_IA_OPORISCUNI_ALTRES
+    Used by the new OpenTextBrowser in the Perceptions section.
+    """
+    return _open_text_items("per_ia_oporiscuni_altres", faculty)
+
+
+@router.get("/open_text/perceptions/positioning/items")
+def open_text_perceptions_positioning_items(
+    faculty: Optional[str] = Query(None, description="Faculty name (short EN)")
+) -> Dict[str, Any]:
+    """
+    Row-level items for: PER_IA_POSICPROF_PERQUE
+    """
+    return _open_text_items("per_ia_posicprof_perque", faculty)
+
+
+@router.get("/open_text/training/other_needs/items")
+def open_text_training_other_needs_items(
+    faculty: Optional[str] = Query(None, description="Faculty name (short EN)")
+) -> Dict[str, Any]:
+    """
+    Row-level items for: FOR_IA_NECEFORMAT_ALTRES
+    """
+    return _open_text_items("for_ia_neceformat_altres", faculty)
+
+
+@router.get("/open_text/comments/items")
+def open_text_general_comments_items(
+    faculty: Optional[str] = Query(None, description="Faculty name (short EN)")
+) -> Dict[str, Any]:
+    """
+    Row-level items for general comments (COMENTARIS).
+    """
+    return _open_text_items("comments", faculty)
+
