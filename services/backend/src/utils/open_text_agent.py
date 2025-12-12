@@ -25,6 +25,7 @@ TRIVIAL_SHORT_ANSWERS = {
     "na",
     "none",
     "-", "--",
+    ".",
 }
 
 

@@ -1539,7 +1539,7 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
       <div className="space-y-3">
                 {/* Sentiment slider (always one selected) */}
         <div>
-          <p className="text-xs font-medium text-slate-600 mb-1">Sentiment</p>
+          <p className="text-xs font-medium text-slate-600 mb-1">Feelings</p>
 
           <div className="flex items-start gap-3">
             {/* Slider + labels share the same width */}
@@ -1632,7 +1632,7 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
           {/* Topic pills */}
           <div className="flex-1">
             <p className="text-xs font-medium text-slate-600 mb-1">
-              Topics (refine within sentiment &amp; cluster)
+              Topics (refine within feelings &amp; cluster)
             </p>
             {availableTopics.length === 0 ? (
               <p className="text-xs text-slate-400">
