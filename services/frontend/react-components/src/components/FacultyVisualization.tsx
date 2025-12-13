@@ -24,10 +24,6 @@ import TrainingReceivedSpider from "./TrainingReceivedSpider";
 import TrainingInterestPie from "./TrainingInterestPie";
 import TrainingNeedsBar from "./TrainingNeedsBar";
 
-
-
-
-
 import Plot from 'react-plotly.js';
 
 /* -------------------------------------------------
@@ -107,13 +103,12 @@ const TotalScoreBoard: React.FC<{ score: number | null; label?: string }> = ({
     Math.min(100, Number.isFinite(score as number) ? (score as number) : 0)
   );
 
-  // Color based on score ranges
   const getScoreColor = (score: number): string => {
-    if (score >= 80) return '#22c55e'; // green
-    if (score >= 60) return '#84cc16'; // lime
-    if (score >= 40) return '#eab308'; // yellow
-    if (score >= 20) return '#f97316'; // orange
-    return '#ef4444'; // red
+    if (score >= 80) return '#22c55e';
+    if (score >= 60) return '#84cc16';
+    if (score >= 40) return '#eab308';
+    if (score >= 20) return '#f97316';
+    return '#ef4444';
   };
 
   const scoreColor = getScoreColor(pct);
@@ -262,10 +257,8 @@ const KnowledgeBarChart = ({ facultyName }: { facultyName: string }) => {
   const winW = useWindowWidth();
   const lt684 = winW < 684;
 
-  // responsive sizes for title + legend (bar chart rule <684px)
   const barTitleSize = lt684 ? 15 : 18;
   const barLegendSize = lt684 ? 11 : 14;
-
 
   const toggleSelection = (value: string) => {
     setSelected((prev) => {
@@ -566,13 +559,11 @@ const NormativePieChart = ({ facultyName }: { facultyName: string }) => {
 // -------------------------
 const KnowledgeFunctionalityChart: React.FC<{
   facultyName: string;
-  facultyColor: string; // passed in from parent
+  facultyColor: string;
 }> = ({ facultyName, facultyColor }) => {
-  // chart "family" for the select
   const [chartFamily, setChartFamily] =
     useState<"bar" | "heatmap" | "spider">("spider");
 
-  // spider variant for the buttons
   const [spiderMode, setSpiderMode] = useState<"area" | "bars">("area");
 
   const [data, setData] = useState<any[]>([]);
@@ -594,7 +585,6 @@ const KnowledgeFunctionalityChart: React.FC<{
   const radarLegendSize = lt740 ? 12 : 14;
   const radarTickFontSize = lt740 ? 10 : 13;
 
-  // RGBA helper for tinted "no data"
   const rgba = (input: string, a = 1) => {
     const s = input.trim();
     if (/^rgba?\(/i.test(s)) {
@@ -658,7 +648,6 @@ const KnowledgeFunctionalityChart: React.FC<{
     fetchData();
   }, [fetchData]);
 
-  // Static labels (match backend order)
   const funcLabels = [
     "Text Creation",
     "Multimedia Creation",
@@ -675,15 +664,13 @@ const KnowledgeFunctionalityChart: React.FC<{
     "Inclusion Support",
   ];
 
-  // Derived only when there is data
   const knowledgeLabels = data.map((d) => d.knowledge_label);
   const matrix = data.map((d) =>
     funcLabels.map((_, i) => Object.values(d)[i + 1])
   );
 
-  // >>> dynamic range for bar spider based on stacked column sums <<<
   const maxRadialValue = React.useMemo(() => {
-    if (!matrix.length) return 4; // fallback when no data
+    if (!matrix.length) return 4;
 
     const numTasks = matrix[0].length;
     let globalMax = 0;
@@ -702,11 +689,9 @@ const KnowledgeFunctionalityChart: React.FC<{
     }
 
     if (!isFinite(globalMax) || globalMax <= 0) return 4;
-    return Math.ceil(globalMax); // closest bigger integer
+    return Math.ceil(globalMax);
   }, [matrix]);
-  // <<< END dynamic range >>>
 
-  // Per-knowledge-group stats across all functionalities
   const groupStats = data.map((d) => ({
     label: d.knowledge_label,
     n: d.n,
@@ -716,7 +701,6 @@ const KnowledgeFunctionalityChart: React.FC<{
     max: d.group_max,
   }));
 
-  // Canonical knowledge order
   const canonicalKnowledgeOrder = [
     "No knowledge",
     "Little knowledge",
@@ -724,21 +708,17 @@ const KnowledgeFunctionalityChart: React.FC<{
     "Expert knowledge",
   ];
 
-  // group stats ordered canonically (and filtered to those that exist)
   const orderedGroupStats = canonicalKnowledgeOrder
     .map((label) => groupStats.find((g) => g.label === label))
     .filter((g): g is (typeof groupStats)[number] => Boolean(g));
 
-  // total N across all visible knowledge groups (for legend + info)
   const totalN = orderedGroupStats.reduce(
     (acc, g) => acc + (typeof g.n === "number" ? g.n : 0),
     0
   );
 
-  // scale to map familiarity 1–4 → 0–100
   const FAMILIARITY_SCALE = 100 / 3;
 
-  // reds palette for top chart
   const colorPalette = [
     "#7f1d1d",
     "#991b1b",
@@ -755,7 +735,6 @@ const KnowledgeFunctionalityChart: React.FC<{
     "#451a03",
   ];
 
-  // shared color mapping for radar + barpolar
   const radarColors: Record<string, string> = {
     "No knowledge": "#b91c1c",
     "Little knowledge": "#fa7112",
@@ -763,7 +742,6 @@ const KnowledgeFunctionalityChart: React.FC<{
     "Expert knowledge": "#fac681",
   };
 
-  // ---- Title + custom tooltip (English, styled) ----
   const knowledgeTitleText = "What's the knowledge within applications?";
 
   const KnowledgeTitleWithTooltip: React.FC<{ label: string }> = ({
@@ -780,7 +758,6 @@ const KnowledgeFunctionalityChart: React.FC<{
         <span className="inline-flex items-center justify-center w-4 h-4 text-[11px] rounded-full border border-rose-400 text-rose-600 bg-rose-50 font-semibold cursor-help leading-none">
           ?
         </span>
-        {/* Custom tooltip */}
         <div className="pointer-events-none absolute left-1/2 top-full z-10 hidden w-[320px] -translate-x-1/2 translate-y-2 rounded-md bg-rose-50 px-3 py-2 text-xs text-slate-700 shadow-lg ring-1 ring-rose-200 group-hover:block">
           <p className="font-semibold mb-1 text-rose-900">
             How to read this chart
@@ -811,11 +788,9 @@ const KnowledgeFunctionalityChart: React.FC<{
       </div>
     </div>
   );
-  // ----------------------------------------------------------
 
   return (
     <div>
-      {/* Filters ALWAYS visible */}
       <div className="flex flex-wrap justify-center gap-2 mb-3">
         <select
           value={gender}
@@ -853,7 +828,6 @@ const KnowledgeFunctionalityChart: React.FC<{
           <option value="Lecturer">Lecturer</option>
           <option value="Professor">Professor</option>
         </select>
-        {/* DROPDOWN NOW ONLY 3 OPTIONS */}
         <select
           value={chartFamily}
           onChange={(e) =>
@@ -867,7 +841,6 @@ const KnowledgeFunctionalityChart: React.FC<{
         </select>
       </div>
 
-      {/* SPIDER MODE TOGGLE – centered, outside the graph */}
       {chartFamily === "spider" && !loading && !noData && (
         <div className="flex justify-center mb-3">
           <div className="inline-flex rounded-lg border border-slate-300 bg-white shadow-sm overflow-hidden">
@@ -897,7 +870,6 @@ const KnowledgeFunctionalityChart: React.FC<{
         </div>
       )}
 
-      {/* Chart Area */}
       <div
         className="relative w-full rounded-xl border border-slate-200 bg-white overflow-hidden flex flex-col"
         style={{ height: chartFamily === "bar" ? "730px" : "600px" }}
@@ -927,7 +899,6 @@ const KnowledgeFunctionalityChart: React.FC<{
           <>
             {chartFamily === "bar" && (
               <>
-                {/* TOP: grouped bar */}
                 <div className="flex-1 flex flex-col">
                   <KnowledgeTitleWithTooltip label={knowledgeTitleText} />
                   <Plot
@@ -945,7 +916,7 @@ const KnowledgeFunctionalityChart: React.FC<{
                     }))}
                     layout={{
                       barmode: "group",
-                      title: { text: "" }, // external title handles text
+                      title: { text: "" },
                       xaxis: {
                         categoryorder: "array",
                         categoryarray: canonicalKnowledgeOrder,
@@ -973,7 +944,6 @@ const KnowledgeFunctionalityChart: React.FC<{
                   />
                 </div>
 
-                {/* BOTTOM: distribution + mean/min/max */}
                 <div className="border-t border-slate-100 px-4 pb-4 pt-2">
                   <Plot
                     data={[
@@ -1261,7 +1231,6 @@ const KnowledgeFunctionalityChart: React.FC<{
                     polar: {
                       bgcolor: "rgba(0,0,0,0)",
                       radialaxis: {
-                        // dynamic range based on stacked column sums
                         range: [0, maxRadialValue],
                         visible: false,
                         showline: false,
@@ -1289,7 +1258,6 @@ const KnowledgeFunctionalityChart: React.FC<{
                         rotation: 90,
                       },
                     },
-                    // stacked so the visual columns match the range logic
                     barmode: "stack",
                     showlegend: true,
                     legend: {
@@ -1323,11 +1291,11 @@ const KnowledgeFunctionalityChart: React.FC<{
     </div>
   );
 };
+
 // -------------------------
-// Open-text helper components (AI analysis visualizations)
+// Open-text helper pieces
 // -------------------------
 
-// --- Types for the new API ---
 type SentimentFine =
   | "very_negative"
   | "negative"
@@ -1350,7 +1318,6 @@ type OpenTextItemsResponse = {
   items: OpenTextItem[];
 };
 
-// canonical sentiment levels for the slider
 const SENTIMENT_LEVELS: {
   id: SentimentFine;
   label: string;
@@ -1371,15 +1338,12 @@ const DEFAULT_SENTIMENT_INDEX = (() => {
 
 interface OpenTextBrowserProps {
   facultyName: string;
-  endpoint: string; // e.g. "/api/open_text/perceptions/opportunities/items"
+  endpoint: string;
   title: string;
   accentColor: string;
   subtitle?: string;
 }
 
-/**
- * Generic open-text browser
- */
 const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
   facultyName,
   endpoint,
@@ -1391,7 +1355,6 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // sentiment as discrete slider index
   const [sentimentIndex, setSentimentIndex] = useState<number>(
     DEFAULT_SENTIMENT_INDEX
   );
@@ -1402,7 +1365,6 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
     SENTIMENT_LEVELS[sentimentIndex]?.id ??
     SENTIMENT_LEVELS[DEFAULT_SENTIMENT_INDEX].id;
 
-  // gradient blocks centered under the slider stops
   const sentimentGradient = React.useMemo(() => {
     const n = SENTIMENT_LEVELS.length;
     if (n === 0) return "#e5e7eb";
@@ -1442,7 +1404,6 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
       .finally(() => setLoading(false));
   }, [facultyName, endpoint]);
 
-  // All unique cluster labels from the data
   const allClusters = React.useMemo(
     () =>
       Array.from(
@@ -1455,7 +1416,6 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
     [items]
   );
 
-  // Topics available under current sentiment + cluster (NOT global)
   const availableTopics = React.useMemo(() => {
     let base = items.filter((it) => it.sentiment_fine === selectedSentiment);
 
@@ -1474,14 +1434,12 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
     return Array.from(topicSet).sort((a, b) => a.localeCompare(b));
   }, [items, selectedSentiment, selectedCluster]);
 
-  // Trim selectedTopics when they disappear from the available set
   useEffect(() => {
     setSelectedTopics((prev) => prev.filter((t) => availableTopics.includes(t)));
   }, [availableTopics]);
 
   const totalItems = items.length;
 
-  // Filtering logic
   const filteredItems = React.useMemo(() => {
     let base = items.filter((it) => it.sentiment_fine === selectedSentiment);
 
@@ -1510,12 +1468,10 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
 
   const handleClusterChange = (value: string) => {
     setSelectedCluster(value);
-    // topics refine inside the selected cluster; do NOT clear them
   };
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h4
@@ -1535,16 +1491,12 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
         )}
       </div>
 
-      {/* Controls */}
       <div className="space-y-3">
-                {/* Sentiment slider (always one selected) */}
         <div>
           <p className="text-xs font-medium text-slate-600 mb-1">Feelings</p>
 
           <div className="flex items-start gap-3">
-            {/* Slider + labels share the same width */}
             <div className="flex-1 min-w-0 max-w-[970px]">
-              {/* SLIDER BAR */}
               <input
                 type="range"
                 min={0}
@@ -1558,23 +1510,17 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
                 }}
               />
 
-              {/* LABELS – centered under each stop, same width as slider */}
-                            <div className="relative mt-2 h-5 w-full">
+              <div className="relative mt-2 h-5 w-full">
                 {SENTIMENT_LEVELS.map((level, idx) => {
                   const active = idx === sentimentIndex;
 
-                  // base linear position
                   const basePct =
                     (idx / (SENTIMENT_LEVELS.length - 1)) * 100;
 
-                  // tweak only the extremes if you want
                   let leftPct = basePct;
                   if (idx === 0) {
-                    // shift "Very negative" a bit to the right
-                    leftPct = basePct + 4.5; //
+                    leftPct = basePct + 4.5;
                   }
-                  // if one day you want to nudge "Neutral" or the right end:
-                  // if (idx === SENTIMENT_LEVELS.length - 1) leftPct = basePct - 3;
 
                   return (
                     <button
@@ -1595,7 +1541,6 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
               </div>
             </div>
 
-            {/* Sentiment pill – does NOT affect slider width now */}
             <span
               className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
               style={{
@@ -1608,9 +1553,8 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
             </span>
           </div>
         </div>
-        {/* Cluster + topics (topics nest inside sentiment+cluster) */}
+
         <div className="flex flex-col md:flex-row gap-4 md:items-start">
-          {/* Cluster selector */}
           <div className="w-full md:w-1/3">
             <p className="text-xs font-medium text-slate-600 mb-1">
               Cluster label
@@ -1629,7 +1573,6 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
             </select>
           </div>
 
-          {/* Topic pills */}
           <div className="flex-1">
             <p className="text-xs font-medium text-slate-600 mb-1">
               Topics (refine within feelings &amp; cluster)
@@ -1665,8 +1608,6 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
         </div>
       </div>
 
-
-      {/* Content */}
       <div className="mt-2">
         {loading && (
           <div className="w-full h-[220px] rounded-xl bg-slate-100 animate-pulse" />
@@ -1757,8 +1698,6 @@ const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
   );
 };
 
-// Now tiny wrappers per question, pointing to the right endpoint.
-
 const OpenTextPerceptionsOpportunities: React.FC<{ facultyName: string }> = ({
   facultyName,
 }) => {
@@ -1826,6 +1765,11 @@ const FacultyVisualization: React.FC<{
   const [scores, setScores] = useState<FacultyScores | null>(null);
   const [loadingScores, setLoadingScores] = useState<boolean>(true);
 
+  // NEW: survey data availability
+  const [hasSurveyData, setHasSurveyData] = useState<boolean | null>(null);
+  const [loadingSurveyInfo, setLoadingSurveyInfo] = useState<boolean>(true);
+
+  // Fetch section scores (existing)
   useEffect(() => {
     let cancelled = false;
     setLoadingScores(true);
@@ -1850,6 +1794,34 @@ const FacultyVisualization: React.FC<{
     };
   }, [faculty.name]);
 
+  // NEW: check whether this faculty has any survey responses
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingSurveyInfo(true);
+
+    fetch(`${API_BASE}/api/survey/faculties?min_count=1`, { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        const rows = Array.isArray(data?.faculties) ? data.faculties : [];
+        const found = rows.some(
+          (r: any) => r?.faculty_name === faculty.name
+        );
+        setHasSurveyData(found);
+      })
+      .catch(() => {
+        // fail-open: if the endpoint fails, we don't block the layout
+        if (!cancelled) setHasSurveyData(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSurveyInfo(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [faculty.name]);
+
   const toggleArea = (areaName: string) => {
     setExpandedAreas((prev) => {
       const newSet = new Set(prev);
@@ -1867,6 +1839,47 @@ const FacultyVisualization: React.FC<{
     if (areaName === 'Training') return scores.training_needs_score;
     return null;
   };
+
+  // NEW: empty-state when there are no survey answers for this faculty
+  if (!loadingSurveyInfo && hasSurveyData === false) {
+    const Icon = pickFacultyIcon(faculty.name);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4">
+        <div className="max-w-3xl mx-auto">
+          <button
+            onClick={onBack}
+            className="mb-6 px-4 py-2 bg-white rounded-lg shadow-sm border border-slate-200 text-slate-600 hover:text-slate-800 hover:shadow-md transition-all duration-200"
+          >
+            ← Back to Faculty Selection
+          </button>
+
+          <div className="bg-white rounded-3xl shadow-lg border border-dashed border-slate-300 p-10 flex flex-col items-center text-center">
+            <div
+              className="mb-4 p-4 rounded-2xl"
+              style={{ backgroundColor: `${faculty.color}15` }}
+            >
+              <Icon className="w-12 h-12" style={{ color: faculty.color }} />
+            </div>
+            <h1 className="text-2xl font-semibold text-slate-800 mb-2">
+              No available data for this faculty
+            </h1>
+            <p className="text-sm text-slate-500 mb-4 max-w-md">
+              We haven&apos;t received any survey responses from the{" "}
+              <span className="font-medium">{faculty.name}</span> faculty yet.
+              Once responses are collected, this page will display detailed
+              visualizations.
+            </p>
+            <button
+              onClick={onBack}
+              className="mt-1 px-4 py-2 bg-slate-900 text-white rounded-lg shadow-sm hover:bg-slate-800 transition-colors text-sm"
+            >
+              ← Back to Faculty Selection
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4">
@@ -1889,7 +1902,6 @@ const FacultyVisualization: React.FC<{
           {/* Header */}
           <div className="p-8 border-b border-slate-200">
             <div className="flex items-center justify-between gap-4 flex-wrap">
-              {/* Left: icon + title */}
               <div className="flex items-center gap-4 min-w-0">
                 <div
                   className="p-4 rounded-xl shadow-sm shrink-0"
@@ -1917,7 +1929,6 @@ const FacultyVisualization: React.FC<{
                 </div>
               </div>
 
-              {/* Right: badge scoreboard */}
               <div className="ml-auto">
                 {loadingScores ? (
                   <div className="w-[7.5rem] h-[7.5rem] md:w-[8.5rem] md:h-[8.5rem] rounded-2xl bg-slate-100 ring-1 ring-slate-200 animate-pulse" />
@@ -1945,7 +1956,6 @@ const FacultyVisualization: React.FC<{
                     backgroundColor: isExpanded ? '#ffffff' : '#fafafa',
                   }}
                 >
-                  {/* Section header */}
                   <button
                     onClick={() => toggleArea(area.name)}
                     className="w-full p-6 hover:bg-slate-50 transition-colors duration-200 text-left"
@@ -1966,7 +1976,6 @@ const FacultyVisualization: React.FC<{
                         </p>
                       </div>
 
-                      {/* Section score bars */}
                       <div className="hidden md:flex justify-start">
                         {loadingScores ? (
                           <div className="h-3.5 w-[20rem] lg:w-[24rem] rounded-full bg-slate-100 ring-1 ring-slate-300 animate-pulse" />
@@ -1996,7 +2005,6 @@ const FacultyVisualization: React.FC<{
                     </div>
                   </button>
 
-                  {/* Section content */}
                   <div
                     className={`transition-all duration-300 ease-in-out overflow-hidden ${
                       isExpanded
@@ -2010,157 +2018,148 @@ const FacultyVisualization: React.FC<{
                     >
                       <div className="min-h-[400px] bg-slate-50 rounded-xl p-8 border-2 border-dashed border-slate-200">
                         {area.name === 'Knowledge' ? (
-                        <>
-                          <div className="flex flex-col gap-6">
-                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                              <KnowledgeFunctionalityChart
-                                facultyName={faculty.name}
-                                facultyColor={faculty.color}
-                              />
-                            </div>
-
-                            <div className="flex flex-col lg:flex-row gap-6">
-                              <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                <KnowledgeBarChart facultyName={faculty.name} />
+                          <>
+                            <div className="flex flex-col gap-6">
+                              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                <KnowledgeFunctionalityChart
+                                  facultyName={faculty.name}
+                                  facultyColor={faculty.color}
+                                />
                               </div>
 
-                              <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                <NormativePieChart facultyName={faculty.name} />
+                              <div className="flex flex-col lg:flex-row gap-6">
+                                <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                  <KnowledgeBarChart facultyName={faculty.name} />
+                                </div>
+
+                                <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                  <NormativePieChart facultyName={faculty.name} />
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          {/* Wordcloud hidden on <768px */}
-                          <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
-                            <KnowledgeApplicationsWordCloud
-                              facultyName={faculty.name}
-                              facultyColor={faculty.color}
-                            />
-                          </div>
-                        </>
-                      ) : area.name === 'Uses' ? (
-                        <>
-                          <div className="flex flex-col gap-6">
-                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                              <UsesFunctionalityChart
-                                facultyName={faculty.name}
-                                facultyColor={faculty.color}
-                              />
-                            </div>
-                            {/* Wordcloud hidden on <768px */}
                             <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
-                              <UsesApplicationsWordCloud
+                              <KnowledgeApplicationsWordCloud
                                 facultyName={faculty.name}
                                 facultyColor={faculty.color}
                               />
                             </div>
-
-                            <div className="flex flex-col lg:flex-row gap-6">
-                              <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                <UsesBarChart facultyName={faculty.name} />
+                          </>
+                        ) : area.name === 'Uses' ? (
+                          <>
+                            <div className="flex flex-col gap-6">
+                              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                <UsesFunctionalityChart
+                                  facultyName={faculty.name}
+                                  facultyColor={faculty.color}
+                                />
+                              </div>
+                              <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
+                                <UsesApplicationsWordCloud
+                                  facultyName={faculty.name}
+                                  facultyColor={faculty.color}
+                                />
                               </div>
 
-                              <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                <ProposesPieChart facultyName={faculty.name} />
+                              <div className="flex flex-col lg:flex-row gap-6">
+                                <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                  <UsesBarChart facultyName={faculty.name} />
+                                </div>
+
+                                <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                  <ProposesPieChart facultyName={faculty.name} />
+                                </div>
+                              </div>
+
+                              <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                <UsesStudentsFunctionalityChart
+                                  facultyName={faculty.name}
+                                  facultyColor={faculty.color}
+                                />
+                              </div>
+                              <div className="mt-6 flex flex-col lg:flex-row gap-6">
+                                <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                  <UsesStudentsAdequacyPieChart facultyName={faculty.name} />
+                                </div>
+
+                                <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                  <StudentsDocChangeByAdequacyBar facultyName={faculty.name} />
+                                </div>
                               </div>
                             </div>
-                            {/* Students uses by proposal (same logic as UsesFunctionalityChart) */}
-                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <UsesStudentsFunctionalityChart
-                              facultyName={faculty.name}
-                              facultyColor={faculty.color}
-                            />
-                          </div>
+                            <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
+                              <ToolsWordCloud
+                                facultyName={faculty.name}
+                                facultyColor={faculty.color}
+                              />
+                            </div>
+                          </>
+                        ) : area.name === 'Perceptions' ? (
+                          <div className="flex flex-col gap-6">
+                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <PerceptionsPrioritiesSpider
+                                facultyName={faculty.name}
+                                facultyColor={"#15803d"}
+                              />
+                            </div>
+                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <PerceptionsStudentsUsesBar
+                                facultyName={faculty.name}
+                                facultyColor={"#15803d"}
+                              />
+                            </div>
+                            <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <PerceptionsStudentsAttitudesBar
+                                facultyName={faculty.name}
+                                facultyColor="#15803d"
+                              />
+                            </div>
                             <div className="mt-6 flex flex-col lg:flex-row gap-6">
-                              <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                <UsesStudentsAdequacyPieChart facultyName={faculty.name} />
-                              </div>
-
                               <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                <StudentsDocChangeByAdequacyBar facultyName={faculty.name} />
+                                <PerceptionsProfAttitudeSpider facultyName={faculty.name} facultyColor="#15803d" />
+                              </div>
+                              <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                <PerceptionsTasksSupportPie facultyName={faculty.name} facultyColor="#15803d" />
                               </div>
                             </div>
-                          </div>
-                          <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
-                            <ToolsWordCloud
-                              facultyName={faculty.name}
-                              facultyColor={faculty.color}
-                            />
-                          </div>
-                        </>
-                      ) : area.name === 'Perceptions' ? (
-                        <div className="flex flex-col gap-6">
-                          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <PerceptionsPrioritiesSpider
-                              facultyName={faculty.name}
-                              facultyColor={"#15803d"}   // Perceptions green
-                            />
-                          </div>
-                          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <PerceptionsStudentsUsesBar
-                              facultyName={faculty.name}
-                              facultyColor={"#15803d"}
-                            />
-                          </div>
-                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <PerceptionsStudentsAttitudesBar
-                              facultyName={faculty.name}
-                              facultyColor="#15803d"
-                            />
-                          </div>
-                          <div className="mt-6 flex flex-col lg:flex-row gap-6">
-                            <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                              <PerceptionsProfAttitudeSpider facultyName={faculty.name} facultyColor="#15803d" />
+                            <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <OpenTextPerceptionsPositioning facultyName={faculty.name} />
                             </div>
-                            <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                              <PerceptionsTasksSupportPie facultyName={faculty.name} facultyColor="#15803d" />
+                            <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <PerceptionsOpportunitiesRisksBar
+                                facultyName={faculty.name}
+                                facultyColor="#15803d"
+                              />
+                            </div>
+                            <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <OpenTextPerceptionsOpportunities facultyName={faculty.name} />
+                            </div>
+                          </div>
+                        ) : area.name === 'Training' ? (
+                          <div className="flex flex-col gap-6">
+                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <TrainingReceivedSpider facultyName={faculty.name} facultyColor="#b45309" />
                             </div>
 
-                          </div>
-                           {/* NEW: open-text reasons behind positioning (PER_IA_POSICPROF_PERQUE) */}
-                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <OpenTextPerceptionsPositioning facultyName={faculty.name} />
-                          </div>
-                          {/* NEW: Opportunities & Risks stacked bar */}
-                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <PerceptionsOpportunitiesRisksBar
-                              facultyName={faculty.name}
-                              facultyColor="#15803d"
-                            />
-                          </div>
-                           {/* NEW: open-text opportunities/risks (PER_IA_OPORISCUNI_ALTRES) */}
-                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <OpenTextPerceptionsOpportunities facultyName={faculty.name} />
-                          </div>
-                        </div>
-                      ) : area.name === 'Training' ? (
-                        <div className="flex flex-col gap-6">
-                          {/* A: Training received (spider) */}
-                          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <TrainingReceivedSpider facultyName={faculty.name} facultyColor="#b45309" />
-                          </div>
-
-                          {/* B: Interest pie (40%) + Needs stacked bar (60%) */}
-                          <div className="mt-6 flex flex-col lg:flex-row gap-6">
-                            <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200 min-h-[520px]">
-                              <TrainingInterestPie facultyName={faculty.name} facultyColor="#b45309" />
+                            <div className="mt-6 flex flex-col lg:flex-row gap-6">
+                              <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200 min-h-[520px]">
+                                <TrainingInterestPie facultyName={faculty.name} facultyColor="#b45309" />
+                              </div>
+                              <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200 min-h-[520px]">
+                                <TrainingNeedsBar facultyName={faculty.name} facultyColor="#b45309" />
+                              </div>
                             </div>
-                            <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200 min-h-[520px]">
-                              <TrainingNeedsBar facultyName={faculty.name} facultyColor="#b45309" />
+                            <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <OpenTextTrainingOtherNeeds facultyName={faculty.name} />
                             </div>
                           </div>
-                          {/* NEW: open-text "other training needs" at the end of the section */}
-                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <OpenTextTrainingOtherNeeds facultyName={faculty.name} />
-                          </div>
-                        </div>
                         ) : area.name === 'Comments' ? (
-                        <div className="flex flex-col gap-6">
-                          <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-                            <CommentsSection facultyName={faculty.name} />
+                          <div className="flex flex-col gap-6">
+                            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                              <CommentsSection facultyName={faculty.name} />
+                            </div>
                           </div>
-                        </div>
-                      ) : null}
+                        ) : null}
                       </div>
                     </div>
                   </div>

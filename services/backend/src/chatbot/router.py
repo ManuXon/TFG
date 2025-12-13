@@ -13,12 +13,15 @@ from src.chatbot.agent import SurveyChatAgent
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
+
 class ChatIn(BaseModel):
     message: str
     lang: Optional[str] = "en"  # default to English
 
+
 class ChatOut(BaseModel):
     answer: str
+
 
 def _require_session(request: Request) -> dict:
     sid = request.cookies.get("session")
@@ -28,6 +31,7 @@ def _require_session(request: Request) -> dict:
     if not sess:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return sess
+
 
 @lru_cache(maxsize=1)
 def _get_surveys_df() -> Optional[pd.DataFrame]:
@@ -59,8 +63,10 @@ def _get_surveys_df() -> Optional[pd.DataFrame]:
     logger.warning("[chatbot] surveys_df unavailable; agent will fall back to DATASET_PATH if set.")
     return None
 
+
 # Instantiate the agent ONCE, injecting the resolved df
 _agent = SurveyChatAgent(surveys_df=_get_surveys_df())
+
 
 @router.post("", response_model=ChatOut)
 def chat(body: ChatIn, sess=Depends(_require_session)):
@@ -72,6 +78,7 @@ def chat(body: ChatIn, sess=Depends(_require_session)):
     except Exception:
         logger.exception("chatbot failure")
         raise HTTPException(status_code=500, detail="Chatbot error")
+
 
 # Optional: quick health to debug in prod
 @router.get("/health")
