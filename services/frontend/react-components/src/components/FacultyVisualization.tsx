@@ -24,10 +24,6 @@ import TrainingReceivedSpider from "./TrainingReceivedSpider";
 import TrainingInterestPie from "./TrainingInterestPie";
 import TrainingNeedsBar from "./TrainingNeedsBar";
 
-
-
-
-
 import Plot from 'react-plotly.js';
 
 /* -------------------------------------------------
@@ -107,13 +103,12 @@ const TotalScoreBoard: React.FC<{ score: number | null; label?: string }> = ({
     Math.min(100, Number.isFinite(score as number) ? (score as number) : 0)
   );
 
-  // Color based on score ranges
   const getScoreColor = (score: number): string => {
-    if (score >= 80) return '#22c55e'; // green
-    if (score >= 60) return '#84cc16'; // lime
-    if (score >= 40) return '#eab308'; // yellow
-    if (score >= 20) return '#f97316'; // orange
-    return '#ef4444'; // red
+    if (score >= 80) return '#22c55e';
+    if (score >= 60) return '#84cc16';
+    if (score >= 40) return '#eab308';
+    if (score >= 20) return '#f97316';
+    return '#ef4444';
   };
 
   const scoreColor = getScoreColor(pct);
@@ -262,10 +257,8 @@ const KnowledgeBarChart = ({ facultyName }: { facultyName: string }) => {
   const winW = useWindowWidth();
   const lt684 = winW < 684;
 
-  // responsive sizes for title + legend (bar chart rule <684px)
   const barTitleSize = lt684 ? 15 : 18;
   const barLegendSize = lt684 ? 11 : 14;
-
 
   const toggleSelection = (value: string) => {
     setSelected((prev) => {
@@ -337,7 +330,7 @@ const KnowledgeBarChart = ({ facultyName }: { facultyName: string }) => {
             },
             yaxis: {
               title: {
-                text: "Avg Knowledge Score (1–4)",
+                text: "Avg Knowledge Score",
                 tickfont: { size: 10 },
               },
               range: [0, 4],
@@ -444,7 +437,7 @@ const KnowledgeBarChart = ({ facultyName }: { facultyName: string }) => {
           },
           xaxis: { title: data.demographics[0], tickfont: { size: 10 } },
           yaxis: {
-            title: { text: "Avg Knowledge Score (1–4)" },
+            title: { text: "Avg Knowledge Score" },
             tickfont: { size: 10 },
             range: [0, 4],
           },
@@ -566,11 +559,13 @@ const NormativePieChart = ({ facultyName }: { facultyName: string }) => {
 // -------------------------
 const KnowledgeFunctionalityChart: React.FC<{
   facultyName: string;
-  facultyColor: string; // passed in from parent
+  facultyColor: string;
 }> = ({ facultyName, facultyColor }) => {
-  const [chartType, setChartType] = useState<'bar' | 'heatmap' | 'radar'>(
-    'radar'
-  );
+  const [chartFamily, setChartFamily] =
+    useState<"bar" | "heatmap" | "spider">("spider");
+
+  const [spiderMode, setSpiderMode] = useState<"area" | "bars">("area");
+
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [noData, setNoData] = useState<boolean>(false);
@@ -587,10 +582,9 @@ const KnowledgeFunctionalityChart: React.FC<{
   const baseTitleFont = lt600 ? 14 : lt740 ? 18 : 21;
   const barTitleSize = lt600 ? 14 : lt684 ? 15 : baseTitleFont;
   const barLegendSize = lt684 ? 11 : 14;
-  const radarLegendSize   = lt740 ? 12 : 14;
+  const radarLegendSize = lt740 ? 12 : 14;
   const radarTickFontSize = lt740 ? 10 : 13;
 
-  // RGBA helper for tinted "no data"
   const rgba = (input: string, a = 1) => {
     const s = input.trim();
     if (/^rgba?\(/i.test(s)) {
@@ -602,7 +596,9 @@ const KnowledgeFunctionalityChart: React.FC<{
       return `rgba(${r},${g},${b},${a})`;
     }
     if (s[0] === "#") {
-      let r = 0, g = 0, b = 0;
+      let r = 0,
+        g = 0,
+        b = 0;
       if (s.length === 4) {
         r = parseInt(s[1] + s[1], 16);
         g = parseInt(s[2] + s[2], 16);
@@ -652,7 +648,6 @@ const KnowledgeFunctionalityChart: React.FC<{
     fetchData();
   }, [fetchData]);
 
-  // Static labels (match backend order)
   const funcLabels = [
     "Text Creation",
     "Multimedia Creation",
@@ -669,11 +664,60 @@ const KnowledgeFunctionalityChart: React.FC<{
     "Inclusion Support",
   ];
 
-  // Derived only when there is data
   const knowledgeLabels = data.map((d) => d.knowledge_label);
   const matrix = data.map((d) =>
     funcLabels.map((_, i) => Object.values(d)[i + 1])
   );
+
+  const maxRadialValue = React.useMemo(() => {
+    if (!matrix.length) return 4;
+
+    const numTasks = matrix[0].length;
+    let globalMax = 0;
+
+    for (let j = 0; j < numTasks; j++) {
+      let colSum = 0;
+      for (let i = 0; i < matrix.length; i++) {
+        const v = matrix[i][j];
+        if (typeof v === "number" && isFinite(v)) {
+          colSum += v;
+        }
+      }
+      if (colSum > globalMax) {
+        globalMax = colSum;
+      }
+    }
+
+    if (!isFinite(globalMax) || globalMax <= 0) return 4;
+    return Math.ceil(globalMax);
+  }, [matrix]);
+
+  const groupStats = data.map((d) => ({
+    label: d.knowledge_label,
+    n: d.n,
+    pct: d.pct,
+    mean: d.group_mean,
+    min: d.group_min,
+    max: d.group_max,
+  }));
+
+  const canonicalKnowledgeOrder = [
+    "No knowledge",
+    "Little knowledge",
+    "Good knowledge",
+    "Expert knowledge",
+  ];
+
+  const orderedGroupStats = canonicalKnowledgeOrder
+    .map((label) => groupStats.find((g) => g.label === label))
+    .filter((g): g is (typeof groupStats)[number] => Boolean(g));
+
+  const totalN = orderedGroupStats.reduce(
+    (acc, g) => acc + (typeof g.n === "number" ? g.n : 0),
+    0
+  );
+
+  const FAMILIARITY_SCALE = 100 / 3;
 
   const colorPalette = [
     "#7f1d1d",
@@ -691,10 +735,63 @@ const KnowledgeFunctionalityChart: React.FC<{
     "#451a03",
   ];
 
+  const radarColors: Record<string, string> = {
+    "No knowledge": "#b91c1c",
+    "Little knowledge": "#fa7112",
+    "Good knowledge": "#fd9c49",
+    "Expert knowledge": "#fac681",
+  };
+
+  const knowledgeTitleText = "What's the knowledge within applications?";
+
+  const KnowledgeTitleWithTooltip: React.FC<{ label: string }> = ({
+    label,
+  }) => (
+    <div className="flex items-center justify-center mb-1">
+      <div className="relative inline-flex items-center gap-1 group">
+        <span
+          className="text-slate-800 font-semibold"
+          style={{ fontSize: barTitleSize }}
+        >
+          {label}
+        </span>
+        <span className="inline-flex items-center justify-center w-4 h-4 text-[11px] rounded-full border border-rose-400 text-rose-600 bg-rose-50 font-semibold cursor-help leading-none">
+          ?
+        </span>
+        <div className="pointer-events-none absolute left-1/2 top-full z-10 hidden w-[320px] -translate-x-1/2 translate-y-2 rounded-md bg-rose-50 px-3 py-2 text-xs text-slate-700 shadow-lg ring-1 ring-rose-200 group-hover:block">
+          <p className="font-semibold mb-1 text-rose-900">
+            How to read this chart
+          </p>
+          <p className="mb-1">Original survey questions:</p>
+          <ul className="list-disc pl-4 space-y-0.5 mb-2">
+            <li>
+              <span className="font-medium">
+                “Rate your knowledge about AI.”
+              </span>{" "}
+              Answers range from no knowledge to advanced knowledge.
+            </li>
+            <li>
+              <span className="font-medium">
+                “I know AI applications for...”
+              </span>{" "}
+              for each application shown on the axes.
+            </li>
+          </ul>
+          <p className="mb-1 font-medium">Numeric scale used for averages:</p>
+          <ul className="list-disc pl-4 space-y-0.5">
+            <li>1 = I don't know any</li>
+            <li>2 = I know a few</li>
+            <li>3 = I know several</li>
+            <li>4 = I know many</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div>
-      {/* Filters ALWAYS visible */}
-      <div className="flex flex-wrap justify-center gap-2 mb-4">
+      <div className="flex flex-wrap justify-center gap-2 mb-3">
         <select
           value={gender}
           onChange={(e) => setGender(e.target.value)}
@@ -732,18 +829,51 @@ const KnowledgeFunctionalityChart: React.FC<{
           <option value="Professor">Professor</option>
         </select>
         <select
-          value={chartType}
-          onChange={(e) => setChartType(e.target.value as any)}
+          value={chartFamily}
+          onChange={(e) =>
+            setChartFamily(e.target.value as "bar" | "heatmap" | "spider")
+          }
           className="border border-slate-300 rounded-md px-3 py-1 text-slate-700 text-sm shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-red-200 transition"
         >
           <option value="bar">Grouped Bar</option>
           <option value="heatmap">Heatmap</option>
-          <option value="radar">Spider</option>
+          <option value="spider">Spider</option>
         </select>
       </div>
 
-      {/* Chart Area */}
-      <div className="relative w-full h-[600px] rounded-xl border border-slate-200 bg-white overflow-hidden">
+      {chartFamily === "spider" && !loading && !noData && (
+        <div className="flex justify-center mb-3">
+          <div className="inline-flex rounded-lg border border-slate-300 bg-white shadow-sm overflow-hidden">
+            <button
+              onClick={() => setSpiderMode("area")}
+              className={
+                "px-3 py-1.5 text-xs md:text-sm " +
+                (spiderMode === "area"
+                  ? "bg-rose-50 text-rose-700"
+                  : "text-slate-600 hover:bg-slate-50")
+              }
+            >
+              Spider (area)
+            </button>
+            <button
+              onClick={() => setSpiderMode("bars")}
+              className={
+                "px-3 py-1.5 text-xs md:text-sm border-l border-slate-300 " +
+                (spiderMode === "bars"
+                  ? "bg-rose-50 text-rose-700"
+                  : "text-slate-600 hover:bg-slate-50")
+              }
+            >
+              Spider (bars)
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div
+        className="relative w-full rounded-xl border border-slate-200 bg-white overflow-hidden flex flex-col"
+        style={{ height: chartFamily === "bar" ? "730px" : "600px" }}
+      >
         {loading && (
           <div className="absolute inset-0 bg-slate-100 animate-pulse" />
         )}
@@ -767,176 +897,393 @@ const KnowledgeFunctionalityChart: React.FC<{
 
         {!loading && !noData && (
           <>
-            {chartType === "bar" && (
-              <Plot
-                data={funcLabels.map((label, i) => ({
-                  x: knowledgeLabels,
-                  y: data.map((d) => Object.values(d)[i + 1]),
-                  name: label,
-                  type: "bar",
-                  orientation: "v",
-                  marker: {
-                    color: colorPalette[i % colorPalette.length],
-                  },
-                  hovertemplate:
-                    `<b>IA Knowledge:</b> %{x}<br><b>${label}:</b> %{y:.2f}<extra></extra>`,
-                }))}
-                layout={{
-                  barmode: "group",
-                  title: {
-                    text: "Whats the knowledge within applications?",
-                    y: 0.96,
-                    font: { size: barTitleSize },
-                  },
-                  xaxis: {
-                    categoryorder: "array",
-                    categoryarray: [
-                      "No knowledge",
-                      "Little knowledge",
-                      "Good knowledge",
-                      "Expert knowledge",
-                    ],
-                    tickfont: { size: radarTickFontSize },
-                  },
-                  yaxis: {
-                    title: { text: "Avg Application Familiarity (1–4)" },
-                    range: [0, 4],
-                    automargin: true,
-                  },
-                  legend: {
-                    orientation: "h",
-                    y: -0.2,
-                    x: 0.071,
-                    font: { size: barLegendSize },
-                    bordercolor: "#e2e8f0",
-                    borderwidth: 1,
-                  },
-                  margin: { t: 80, l: 60, r: 30, b: 80 },
-                  paper_bgcolor: "rgba(0,0,0,0)",
-                  plot_bgcolor: "rgba(0,0,0,0)",
-                }}
-                style={{ width: "100%", height: "100%" }}
-                config={{ displayModeBar: false }}
-              />
-            )}
-
-            {chartType === "heatmap" && (
-              <Plot
-                data={[
-                  {
-                    z: matrix,
-                    x: funcLabels,
-                    y: knowledgeLabels,
-                    type: "heatmap",
-                    colorscale: "Reds",
-                    colorbar: { title: { text: "Familiarity" } },
-                    hovertemplate:
-                      `<b>IA Knowledge:</b> %{y}` +
-                      `<br><b>Functionality:</b> %{x}` +
-                      `<br><b>Avg Familiarity:</b> %{z:.2f}<extra></extra>`,
-                  },
-                ]}
-                layout={{
-                  title: {
-                    text: "Whats the knowledge within applications?",
-                    y: 0.96,
-                    font: { size: barTitleSize },
-                  },
-                  y: 1.0,
-                  yaxis: {
-                    autorange: "reversed",
-                    tickfont: { size: radarTickFontSize },
-                  },
-                  xaxis: { tickfont: { size: 11 } },
-                  // ADDED right margin + using 95% width in style below
-                  margin: { t: 110, l: 135, r: 0, b: 110 },
-                  paper_bgcolor: "rgba(0,0,0,0)",
-                  plot_bgcolor: "rgba(0,0,0,0)",
-                  font: { color: "#334155" },
-                }}
-                config={{ displayModeBar: false }}
-                style={{ width: "95%", height: "100%" }}
-              />
-            )}
-
-            {chartType === "radar" && (
-              <Plot
-                data={data.map((d, i) => {
-                  const radarColors: Record<string, string> = {
-                    "No knowledge": "#b91c1c",
-                    "Little knowledge": "#fa7112",
-                    "Good knowledge": "#fd9c49",
-                    "Expert knowledge": "#fac681",
-                  };
-                  const color =
-                    radarColors[d.knowledge_label] || "#b91c1c";
-                  return {
-                    type: "scatterpolar" as const,
-                    r: matrix[i].concat(matrix[i][0]),
-                    theta: funcLabels.concat(funcLabels[0]),
-                    fill: "toself",
-                    name: d.knowledge_label,
-                    line: { color, width: 3 },
-                    fillcolor: color + "40",
-                    hovertemplate:
-                      `<b>%{theta}</b><br>Knowledge Level: <b>${d.knowledge_label}</b>` +
-                      `<br>Avg Familiarity: %{r:.2f}<extra></extra>`,
-                  };
-                })}
-                layout={{
-                  title: {
-                    text: "Whats the knowledge within applications?",
-                    font: { size: barTitleSize, color: "#334155" },
-                    y: 0.96,
-                  },
-                  polar: {
-                    bgcolor: "rgba(0,0,0,0)",
-                    radialaxis: {
-                      visible: false,
-                      showline: false,
-                      range: [0, 4],
-                      gridcolor: "#f1f5f9",
-                      gridwidth: 1.3,
-                      tickfont: { color: "#475569", size: 11 },
-                      tickangle: 0,
-                      ticksuffix: " ",
-                    },
-                    angularaxis: {
-                      gridcolor: "#e2e8f0",
-                      linecolor: "#cbd5e1",
-                      showline: true,
-                      linewidth: 1.5,
-                      tickfont: {
-                        color: "#334155",
-                        size: radarTickFontSize,
+            {chartFamily === "bar" && (
+              <>
+                <div className="flex-1 flex flex-col">
+                  <KnowledgeTitleWithTooltip label={knowledgeTitleText} />
+                  <Plot
+                    data={funcLabels.map((label, i) => ({
+                      x: knowledgeLabels,
+                      y: data.map((d) => Object.values(d)[i + 1]),
+                      name: label,
+                      type: "bar",
+                      orientation: "v",
+                      marker: {
+                        color: colorPalette[i % colorPalette.length],
                       },
-                      ticklen: 8,
-                      ticks: "",
-                      direction: "clockwise",
-                      rotation: 90,
+                      hovertemplate:
+                        `<b>AI Knowledge:</b> %{x}<br><b>${label}:</b> %{y:.2f}<extra></extra>`,
+                    }))}
+                    layout={{
+                      barmode: "group",
+                      title: { text: "" },
+                      xaxis: {
+                        categoryorder: "array",
+                        categoryarray: canonicalKnowledgeOrder,
+                        tickfont: { size: radarTickFontSize },
+                      },
+                      yaxis: {
+                        title: { text: "Avg Application Familiarity (1–4)" },
+                        range: [0, 4],
+                        automargin: true,
+                      },
+                      legend: {
+                        orientation: "h",
+                        y: -0.2,
+                        x: 0.071,
+                        font: { size: barLegendSize },
+                        bordercolor: "#e2e8f0",
+                        borderwidth: 1,
+                      },
+                      margin: { t: 40, l: 60, r: 30, b: 80 },
+                      paper_bgcolor: "rgba(0,0,0,0)",
+                      plot_bgcolor: "rgba(0,0,0,0)",
+                    }}
+                    style={{ width: "100%", height: "390px" }}
+                    config={{ displayModeBar: false }}
+                  />
+                </div>
+
+                <div className="border-t border-slate-100 px-4 pb-4 pt-2">
+                  <Plot
+                    data={[
+                      {
+                        x: orderedGroupStats.map((g) => g.label),
+                        y: orderedGroupStats.map((g) => g.pct ?? 0),
+                        type: "bar" as const,
+                        name: "% of respondents",
+                        marker: {
+                          color: "#fee2e2",
+                          line: { color: "#b91c1c", width: 1 },
+                        },
+                        customdata: orderedGroupStats.map((g) => g.n ?? 0),
+                        hovertemplate:
+                          "<b>%{x}</b><br>Share: %{y:.1f}% (n=%{customdata})<extra></extra>",
+                      },
+                      {
+                        x: orderedGroupStats.map((g) => g.label),
+                        y: orderedGroupStats.map((g) =>
+                          ((g.mean ?? 1) - 1) * FAMILIARITY_SCALE
+                        ),
+                        type: "scatter" as const,
+                        mode: "lines+markers",
+                        name: "Avg familiarity (1–4)",
+                        yaxis: "y2",
+                        line: { color: "#b91c1c", width: 3 },
+                        marker: { color: "#b91c1c", size: 7 },
+                        error_y: {
+                          type: "data",
+                          symmetric: false,
+                          array: orderedGroupStats.map((g) =>
+                            Math.max(
+                              0,
+                              ((g.max ?? 1) - (g.mean ?? 1)) * FAMILIARITY_SCALE
+                            )
+                          ),
+                          arrayminus: orderedGroupStats.map((g) =>
+                            Math.max(
+                              0,
+                              ((g.mean ?? 1) - (g.min ?? 1)) * FAMILIARITY_SCALE
+                            )
+                          ),
+                          visible: true,
+                          thickness: 1.4,
+                          width: 5,
+                          color: "#b91c1c",
+                        },
+                        customdata: orderedGroupStats.map((g) => [
+                          g.mean ?? 0,
+                          g.min ?? 0,
+                          g.max ?? 0,
+                        ]),
+                        hovertemplate:
+                          "<b>%{x}</b>" +
+                          "<br>Mean: %{customdata[0]:.2f}" +
+                          "<br>Min: %{customdata[1]:.2f}" +
+                          "<br>Max: %{customdata[2]:.2f}<extra></extra>",
+                      },
+                    ]}
+                    layout={{
+                      title: {
+                        text: "Knowledge group distribution",
+                        font: { size: barTitleSize },
+                        y: 1,
+                      },
+                      xaxis: {
+                        categoryorder: "array",
+                        categoryarray: canonicalKnowledgeOrder,
+                        tickfont: { size: radarTickFontSize },
+                      },
+                      yaxis: {
+                        title: { text: "% of respondents" },
+                        rangemode: "tozero",
+                        range: [0, 100],
+                        tickmode: "array",
+                        tickvals: [0, 20, 40, 60, 80, 100],
+                        ticktext: ["0", "20", "40", "60", "80", "100"],
+                        gridcolor: "#e2e8f0",
+                        zeroline: false,
+                      },
+                      yaxis2: {
+                        title: { text: "Avg familiarity (1–4)" },
+                        overlaying: "y",
+                        side: "right",
+                        range: [0, 100],
+                        showgrid: false,
+                        tickmode: "array",
+                        tickvals: [0, 20, 40, 60, 80, 100],
+                        ticktext: ["1", "1.6", "2.2", "2.8", "3.4", "4"],
+                      },
+                      legend: {
+                        orientation: "h",
+                        x: 0.5,
+                        xanchor: "center",
+                        y: -0.2,
+                        font: { size: 11 },
+                        bordercolor: "#e2e8f0",
+                        borderwidth: 1,
+                      },
+                      margin: { t: 50, l: 60, r: 60, b: 70 },
+                      paper_bgcolor: "rgba(0,0,0,0)",
+                      plot_bgcolor: "rgba(0,0,0,0)",
+                    }}
+                    style={{ width: "100%", height: "260px" }}
+                    config={{ displayModeBar: false }}
+                  />
+                </div>
+              </>
+            )}
+
+            {chartFamily === "heatmap" && (
+              <div className="flex-1 flex flex-col items-center">
+                <KnowledgeTitleWithTooltip label={knowledgeTitleText} />
+                <Plot
+                  data={[
+                    {
+                      z: matrix,
+                      x: funcLabels,
+                      y: knowledgeLabels,
+                      type: "heatmap",
+                      colorscale: "Reds",
+                      colorbar: { title: { text: "Familiarity" } },
+                      hovertemplate:
+                        `<b>IA Knowledge:</b> %{y}` +
+                        `<br><b>Functionality:</b> %{x}` +
+                        `<br><b>Avg Familiarity:</b> %{z:.2f}<extra></extra>`,
                     },
-                  },
-                  showlegend: true,
-                  legend: {
-                    title: {
-                      text: "AI Knowledge level",
-                      font: { color: "#334155", size: radarLegendSize },
+                  ]}
+                  layout={{
+                    title: { text: "" },
+                    yaxis: {
+                      autorange: "reversed",
+                      tickfont: { size: radarTickFontSize },
                     },
-                    orientation: "v",
-                    y: 1,
-                    x: -0.04,
-                    xanchor: "left",
-                    font: { color: "#334155", size: radarLegendSize },
-                    bordercolor: "#e2e8f0",
-                    borderwidth: 1,
-                  },
-                  margin: { t: 90, l: 80, r: 40, b: 40 },
-                  paper_bgcolor: "rgba(0,0,0,0)",
-                  plot_bgcolor: "rgba(0,0,0,0)",
-                }}
-                style={{ width: "100%", height: "100%" }}
-                config={{ displayModeBar: false }}
-              />
+                    xaxis: { tickfont: { size: 11 } },
+                    margin: { t: 40, l: 135, r: 0, b: 110 },
+                    paper_bgcolor: "rgba(0,0,0,0)",
+                    plot_bgcolor: "rgba(0,0,0,0)",
+                    font: { color: "#334155" },
+                  }}
+                  config={{ displayModeBar: false }}
+                  style={{ width: "95%", height: "100%" }}
+                />
+              </div>
+            )}
+
+            {chartFamily === "spider" && spiderMode === "area" && (
+              <div className="flex-1 flex flex-col">
+                <KnowledgeTitleWithTooltip label={knowledgeTitleText} />
+                <Plot
+                  data={data.map((d: any, i: number) => {
+                    const color = radarColors[d.knowledge_label] || "#b91c1c";
+
+                    const n = d.n ?? 0;
+                    const pct = d.pct ?? 0;
+                    const mean = d.group_mean ?? 0;
+                    const min = d.group_min ?? 0;
+                    const max = d.group_max ?? 0;
+
+                    const legendName = [
+                      `<span style="font-weight:600">${d.knowledge_label}</span>`,
+                      `<span style="font-size:11px; color:#4b5563">n=${n} · ${pct.toFixed(
+                        1
+                      )}% · μ=${mean.toFixed(2)} [${min.toFixed(
+                        2
+                      )}–${max.toFixed(2)}]</span>`,
+                    ].join("<br>");
+
+                    return {
+                      type: "scatterpolar" as const,
+                      r: matrix[i].concat(matrix[i][0]),
+                      theta: funcLabels.concat(funcLabels[0]),
+                      fill: "toself",
+                      name: legendName,
+                      line: { color, width: 3 },
+                      fillcolor: color + "40",
+                      hovertemplate:
+                        `<b>%{theta}</b><br>Knowledge Level: <b>${d.knowledge_label}</b>` +
+                        `<br>Avg Familiarity: %{r:.2f}<extra></extra>`,
+                    };
+                  })}
+                  layout={{
+                    title: { text: "" },
+                    polar: {
+                      bgcolor: "rgba(0,0,0,0)",
+                      radialaxis: {
+                        visible: true,
+                        showline: true,
+                        range: [0, 4],
+                        gridcolor: "#f1f5f9",
+                        gridwidth: 1.3,
+                        tickfont: { color: "#475569", size: 11 },
+                        tickangle: 0,
+                        ticksuffix: " ",
+                        title: {
+                          text: "Application familiarity",
+                          font: { size: 11 },
+                        },
+                      },
+                      angularaxis: {
+                        gridcolor: "#e2e8f0",
+                        linecolor: "#cbd5e1",
+                        showline: true,
+                        linewidth: 1.5,
+                        tickfont: {
+                          color: "#334155",
+                          size: radarTickFontSize,
+                        },
+                        ticklen: 8,
+                        ticks: "",
+                        direction: "clockwise",
+                        rotation: 90,
+                      },
+                    },
+                    showlegend: true,
+                    legend: {
+                      title: {
+                        text:
+                          `<span style="font-weight:600">AI Knowledge level</span> (total n=${totalN})` +
+                          '<br><span style="font-size:11px; font-style:italic">mean / min / max across applications</span>',
+                      },
+                      orientation: "v",
+                      y: 1.05,
+                      x: -0.12,
+                      xanchor: "left",
+                      yanchor: "top",
+                      font: {
+                        color: "#334155",
+                        size: radarLegendSize - 2,
+                      },
+                      bgcolor: "rgba(255,255,255,0.9)",
+                      bordercolor: "#e2e8f0",
+                      borderwidth: 1,
+                    },
+                    margin: { t: 40, l: 20, r: 40, b: 40 },
+                    paper_bgcolor: "rgba(0,0,0,0)",
+                    plot_bgcolor: "rgba(0,0,0,0)",
+                  }}
+                  style={{ width: "100%", height: "100%" }}
+                  config={{ displayModeBar: false }}
+                />
+              </div>
+            )}
+
+            {chartFamily === "spider" && spiderMode === "bars" && (
+              <div className="flex-1 flex flex-col">
+                <KnowledgeTitleWithTooltip label={knowledgeTitleText} />
+                <Plot
+                  data={data.map((d: any, i: number) => {
+                    const color = radarColors[d.knowledge_label] || "#b91c1c";
+                    const rVals = matrix[i];
+
+                    const n = d.n ?? 0;
+                    const pct = d.pct ?? 0;
+                    const mean = d.group_mean ?? 0;
+                    const min = d.group_min ?? 0;
+                    const max = d.group_max ?? 0;
+
+                    const legendName = [
+                      `<span style="font-weight:600">${d.knowledge_label}</span>`,
+                      `<span style="font-size:11px; color:#4b5563">n=${n} · ${pct.toFixed(
+                        1
+                      )}% · μ=${mean.toFixed(2)} [${min.toFixed(
+                        2
+                      )}–${max.toFixed(2)}]</span>`,
+                    ].join("<br>");
+
+                    return {
+                      type: "barpolar" as const,
+                      r: rVals,
+                      theta: funcLabels,
+                      name: legendName,
+                      marker: {
+                        color,
+                        line: { color: "#ffffff", width: 1 },
+                      },
+                      opacity: 0.95,
+                      hovertemplate:
+                        `<b>%{theta}</b><br>Knowledge Level: <b>${d.knowledge_label}</b>` +
+                        `<br>Avg Familiarity: %{r:.2f}<extra></extra>`,
+                    };
+                  })}
+                  layout={{
+                    title: { text: "" },
+                    polar: {
+                      bgcolor: "rgba(0,0,0,0)",
+                      radialaxis: {
+                        range: [0, maxRadialValue],
+                        visible: false,
+                        showline: false,
+                        gridcolor: "#f1f5f9",
+                        gridwidth: 1.3,
+                        showticklabels: false,
+                        ticks: "",
+                        title: {
+                          text: "Application familiarity",
+                          font: { size: 11 },
+                        },
+                      },
+                      angularaxis: {
+                        gridcolor: "#e2e8f0",
+                        linecolor: "#cbd5e1",
+                        showline: true,
+                        linewidth: 1.5,
+                        tickfont: {
+                          color: "#334155",
+                          size: radarTickFontSize,
+                        },
+                        ticklen: 8,
+                        ticks: "",
+                        direction: "clockwise",
+                        rotation: 90,
+                      },
+                    },
+                    barmode: "stack",
+                    showlegend: true,
+                    legend: {
+                      title: {
+                        text:
+                          `<span style="font-weight:600">AI Knowledge level</span> (total n=${totalN})` +
+                          '<br><span style="font-size:11px; font-style:italic">mean / min / max across applications</span>',
+                      },
+                      orientation: "v",
+                      y: 1.05,
+                      x: -0.12,
+                      xanchor: "left",
+                      yanchor: "top",
+                      font: { color: "#334155", size: radarLegendSize - 2 },
+                      bgcolor: "rgba(255,255,255,0.9)",
+                      bordercolor: "#e2e8f0",
+                      borderwidth: 1,
+                    },
+                    margin: { t: 40, l: 20, r: 40, b: 40 },
+                    paper_bgcolor: "rgba(0,0,0,0)",
+                    plot_bgcolor: "rgba(0,0,0,0)",
+                  }}
+                  style={{ width: "100%", height: "100%" }}
+                  config={{ displayModeBar: false }}
+                />
+              </div>
             )}
           </>
         )}
@@ -944,486 +1291,466 @@ const KnowledgeFunctionalityChart: React.FC<{
     </div>
   );
 };
+
 // -------------------------
-// Open-text helper components (AI analysis visualizations)
+// Open-text helper pieces
 // -------------------------
 
-type OpenTextData = {
-  sentiment: { labels: string[]; counts: number[] };
-  topics: { labels: string[]; counts: number[] };
+type SentimentFine =
+  | "very_negative"
+  | "negative"
+  | "mixed"
+  | "positive"
+  | "very_positive"
+  | "neutral";
+
+type OpenTextItem = {
+  row_id: number;
+  sentiment: "negative" | "neutral" | "positive";
+  sentiment_fine: SentimentFine;
+  cluster_id: number;
+  cluster_label: string;
+  main_topics: string[];
+  english_text: string;
 };
 
-const OpenTextPerceptionsOpportunities: React.FC<{ facultyName: string }> = ({ facultyName }) => {
-  const [data, setData] = useState<OpenTextData>({
-    sentiment: { labels: [], counts: [] },
-    topics: { labels: [], counts: [] },
-  });
-  const [loading, setLoading] = useState(false);
+type OpenTextItemsResponse = {
+  items: OpenTextItem[];
+};
+
+const SENTIMENT_LEVELS: {
+  id: SentimentFine;
+  label: string;
+  color: string;
+}[] = [
+  { id: "very_negative", label: "Very negative", color: "#b91c1c" },
+  { id: "negative", label: "Negative", color: "#f97316" },
+  { id: "mixed", label: "Mixed", color: "#0f172a" },
+  { id: "positive", label: "Positive", color: "#22c55e" },
+  { id: "very_positive", label: "Very positive", color: "#16a34a" },
+  { id: "neutral", label: "Neutral", color: "#6b7280" },
+];
+
+const DEFAULT_SENTIMENT_INDEX = (() => {
+  const idx = SENTIMENT_LEVELS.findIndex((s) => s.id === "mixed");
+  return idx >= 0 ? idx : 0;
+})();
+
+interface OpenTextBrowserProps {
+  facultyName: string;
+  endpoint: string;
+  title: string;
+  accentColor: string;
+  subtitle?: string;
+}
+
+const OpenTextBrowser: React.FC<OpenTextBrowserProps> = ({
+  facultyName,
+  endpoint,
+  title,
+  accentColor,
+  subtitle,
+}) => {
+  const [items, setItems] = useState<OpenTextItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [sentimentIndex, setSentimentIndex] = useState<number>(
+    DEFAULT_SENTIMENT_INDEX
+  );
+  const [selectedCluster, setSelectedCluster] = useState<string>("All");
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+
+  const selectedSentiment: SentimentFine =
+    SENTIMENT_LEVELS[sentimentIndex]?.id ??
+    SENTIMENT_LEVELS[DEFAULT_SENTIMENT_INDEX].id;
+
+  const sentimentGradient = React.useMemo(() => {
+    const n = SENTIMENT_LEVELS.length;
+    if (n === 0) return "#e5e7eb";
+
+    const valuePct = (i: number) => (i / (n - 1)) * 100;
+    const stops: string[] = [];
+
+    for (let i = 0; i < n; i++) {
+      const color = SENTIMENT_LEVELS[i].color;
+      const left = i === 0 ? 0 : (valuePct(i - 1) + valuePct(i)) / 2;
+      const right = i === n - 1 ? 100 : (valuePct(i) + valuePct(i + 1)) / 2;
+      stops.push(`${color} ${left}%`, `${color} ${right}%`);
+    }
+
+    return `linear-gradient(to right, ${stops.join(", ")})`;
+  }, []);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
+
     const params = new URLSearchParams({ faculty: facultyName });
-    fetch(`${API_BASE}/api/open_text/perceptions/opportunities?${params.toString()}`, {
-      cache: "no-store",
-    })
-      .then((r) => r.json())
-      .then((d: OpenTextData) => {
-        setData({
-          sentiment: d?.sentiment ?? { labels: [], counts: [] },
-          topics: d?.topics ?? { labels: [], counts: [] },
-        });
+
+    fetch(`${API_BASE}${endpoint}?${params.toString()}`, { cache: "no-store" })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
       })
-      .catch(() =>
-        setData({
-          sentiment: { labels: [], counts: [] },
-          topics: { labels: [], counts: [] },
-        })
-      )
+      .then((d: OpenTextItemsResponse) => {
+        setItems(Array.isArray(d?.items) ? d.items : []);
+      })
+      .catch((err) => {
+        console.error("Error fetching open-text items:", err);
+        setError("Error fetching open-text data.");
+        setItems([]);
+      })
       .finally(() => setLoading(false));
-  }, [facultyName]);
+  }, [facultyName, endpoint]);
 
-  const hasData =
-    data.topics.labels.length > 0 || data.sentiment.labels.length > 0;
+  const allClusters = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          items
+            .map((it) => it.cluster_label)
+            .filter((s) => typeof s === "string" && s.trim().length > 0)
+        )
+      ).sort((a, b) => a.localeCompare(b)),
+    [items]
+  );
 
-  if (loading) {
-    return (
-      <div className="w-full h-[280px] rounded-xl bg-slate-100 animate-pulse" />
+  const availableTopics = React.useMemo(() => {
+    let base = items.filter((it) => it.sentiment_fine === selectedSentiment);
+
+    if (selectedCluster !== "All") {
+      base = base.filter((it) => it.cluster_label === selectedCluster);
+    }
+
+    const topicSet = new Set<string>();
+    base.forEach((it) => {
+      (it.main_topics || []).forEach((t) => {
+        const trimmed = t?.trim();
+        if (trimmed) topicSet.add(trimmed);
+      });
+    });
+
+    return Array.from(topicSet).sort((a, b) => a.localeCompare(b));
+  }, [items, selectedSentiment, selectedCluster]);
+
+  useEffect(() => {
+    setSelectedTopics((prev) => prev.filter((t) => availableTopics.includes(t)));
+  }, [availableTopics]);
+
+  const totalItems = items.length;
+
+  const filteredItems = React.useMemo(() => {
+    let base = items.filter((it) => it.sentiment_fine === selectedSentiment);
+
+    if (selectedCluster !== "All") {
+      base = base.filter((it) => it.cluster_label === selectedCluster);
+    }
+
+    if (selectedTopics.length > 0) {
+      base = base.filter((it) =>
+        (it.main_topics || []).some((t) => selectedTopics.includes(t))
+      );
+    }
+
+    return base;
+  }, [items, selectedSentiment, selectedCluster, selectedTopics]);
+
+  const currentSentimentMeta = SENTIMENT_LEVELS[sentimentIndex];
+
+  const toggleTopic = (topic: string) => {
+    setSelectedTopics((prev) =>
+      prev.includes(topic)
+        ? prev.filter((t) => t !== topic)
+        : [...prev, topic]
     );
-  }
+  };
 
-  if (!hasData) {
-    return (
-      <div className="text-sm text-slate-500 text-center py-8">
-        No open-text data for this question in this faculty.
-      </div>
-    );
-  }
-
-  const HEIGHT = 260;
-  const MARGIN = { t: 10, l: 40, r: 10, b: 60 }; // <-- SAME for both
+  const handleClusterChange = (value: string) => {
+    setSelectedCluster(value);
+  };
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      {/* Topics / clusters */}
-      <div>
-        <h4 className="text-sm font-semibold text-emerald-700 mb-2">
-          Main recurrent topics
-        </h4>
-        <Plot
-          data={[
-            {
-              x: data.topics.labels,
-              y: data.topics.counts,
-              type: "bar" as const,
-              marker: { color: "#16a34a", opacity: 0.95 },
-              hovertemplate:
-                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-            },
-          ]}
-          layout={{
-            margin: MARGIN,
-            xaxis: { automargin: true },
-            yaxis: { title: "Responses", rangemode: "tozero" },
-            height: HEIGHT,
-            paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(0,0,0,0)",
-          }}
-          style={{ width: "100%", height: HEIGHT }}
-          config={{ displayModeBar: false }}
-        />
+    <div className="flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h4
+            className="text-sm font-semibold mb-1"
+            style={{ color: accentColor }}
+          >
+            {title}
+          </h4>
+          {subtitle && (
+            <p className="text-xs text-slate-500 max-w-xl">{subtitle}</p>
+          )}
+        </div>
+        {totalItems > 0 && (
+          <div className="text-xs text-slate-500">
+            {totalItems} analysed comments
+          </div>
+        )}
       </div>
 
-      {/* Sentiment */}
-      <div>
-        <h4 className="text-sm font-semibold text-emerald-700 mb-2">
-          Sentiment about opportunities & risks
-        </h4>
-        <Plot
-          data={[
-            {
-              x: data.sentiment.labels,
-              y: data.sentiment.counts,
-              type: "bar" as const,
-              marker: {
-                color: ["#ef4444", "#6b7280", "#22c55e"],
-              },
-              hovertemplate:
-                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-            },
-          ]}
-          layout={{
-            margin: MARGIN,                     // <-- SAME
-            xaxis: { automargin: true },
-            yaxis: { title: "Responses", rangemode: "tozero" },
-            height: HEIGHT,                     // <-- SAME
-            paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(0,0,0,0)",
-          }}
-          style={{ width: "100%", height: HEIGHT }}
-          config={{ displayModeBar: false }}
-        />
+      <div className="space-y-3">
+        <div>
+          <p className="text-xs font-medium text-slate-600 mb-1">Feelings</p>
+
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0 max-w-[970px]">
+              <input
+                type="range"
+                min={0}
+                max={SENTIMENT_LEVELS.length - 1}
+                step={1}
+                value={sentimentIndex}
+                onChange={(e) => setSentimentIndex(Number(e.target.value))}
+                className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                style={{
+                  background: sentimentGradient,
+                }}
+              />
+
+              <div className="relative mt-2 h-5 w-full">
+                {SENTIMENT_LEVELS.map((level, idx) => {
+                  const active = idx === sentimentIndex;
+
+                  const basePct =
+                    (idx / (SENTIMENT_LEVELS.length - 1)) * 100;
+
+                  let leftPct = basePct;
+                  if (idx === 0) {
+                    leftPct = basePct + 4.5;
+                  }
+
+                  return (
+                    <button
+                      key={level.id}
+                      type="button"
+                      onClick={() => setSentimentIndex(idx)}
+                      className={`absolute top-0 -translate-x-1/2 text-[11px] md:text-xs font-medium whitespace-nowrap transition-colors ${
+                        active
+                          ? "text-slate-900"
+                          : "text-slate-400 hover:text-slate-700"
+                      }`}
+                      style={{ left: `${leftPct}%` }}
+                    >
+                      {level.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <span
+              className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
+              style={{
+                backgroundColor: currentSentimentMeta.color + "20",
+                color: currentSentimentMeta.color,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {currentSentimentMeta.label}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-4 md:items-start">
+          <div className="w-full md:w-1/3">
+            <p className="text-xs font-medium text-slate-600 mb-1">
+              Cluster label
+            </p>
+            <select
+              value={selectedCluster}
+              onChange={(e) => handleClusterChange(e.target.value)}
+              className="w-full border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-700 shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200"
+            >
+              <option value="All">All clusters</option>
+              {allClusters.map((cl) => (
+                <option key={cl} value={cl}>
+                  {cl}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex-1">
+            <p className="text-xs font-medium text-slate-600 mb-1">
+              Topics (refine within feelings &amp; cluster)
+            </p>
+            {availableTopics.length === 0 ? (
+              <p className="text-xs text-slate-400">
+                No topics available for the current filters.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {availableTopics.map((topic) => {
+                  const active = selectedTopics.includes(topic);
+                  return (
+                    <button
+                      key={topic}
+                      onClick={() => toggleTopic(topic)}
+                      className={`text-[11px] px-2.5 py-1 rounded-full border transition-all ${
+                        active
+                          ? "shadow-sm bg-slate-800 text-white"
+                          : "bg-white hover:bg-slate-50 text-slate-700"
+                      }`}
+                      style={{
+                        borderColor: active ? "#0f172a" : "#e5e7eb",
+                      }}
+                    >
+                      {topic}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-2">
+        {loading && (
+          <div className="w-full h-[220px] rounded-xl bg-slate-100 animate-pulse" />
+        )}
+
+        {!loading && error && (
+          <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && totalItems === 0 && (
+          <div className="text-xs text-slate-500 text-center py-6">
+            No open-text data for this faculty and question.
+          </div>
+        )}
+
+        {!loading && !error && totalItems > 0 && filteredItems.length === 0 && (
+          <div className="text-xs text-slate-500 text-center py-6">
+            No comments match the current filters.
+          </div>
+        )}
+
+        {!loading && !error && filteredItems.length > 0 && (
+          <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+            {filteredItems.map((it) => {
+              const meta =
+                SENTIMENT_LEVELS.find((s) => s.id === it.sentiment_fine) ||
+                currentSentimentMeta;
+
+              return (
+                <div
+                  key={it.row_id}
+                  className="rounded-xl border bg-white px-3 py-2.5 text-xs text-slate-700 shadow-sm"
+                  style={{
+                    borderColor: meta.color + "55",
+                  }}
+                >
+                  <div className="flex justify-between items-start gap-2 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
+                        style={{
+                          backgroundColor: meta.color + "20",
+                          color: meta.color,
+                        }}
+                      >
+                        {meta.label}
+                      </span>
+                      {it.cluster_label && (
+                        <span className="text-[11px] text-slate-500 italic">
+                          {it.cluster_label}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-400">
+                      ID: {it.row_id}
+                    </span>
+                  </div>
+
+                  {it.main_topics && it.main_topics.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      {it.main_topics.map((t) => (
+                        <span
+                          key={t}
+                          className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-slate-100 text-[10px] text-slate-600 border border-slate-200"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <p className="text-[11px] leading-snug">
+                    {it.english_text || (
+                      <span className="italic text-slate-400">
+                        [no English text]
+                      </span>
+                    )}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-const OpenTextPerceptionsPositioning: React.FC<{ facultyName: string }> = ({ facultyName }) => {
-  const [data, setData] = useState<OpenTextData>({
-    sentiment: { labels: [], counts: [] },
-    topics: { labels: [], counts: [] },
-  });
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ faculty: facultyName });
-    fetch(`${API_BASE}/api/open_text/perceptions/positioning?${params.toString()}`, {
-      cache: "no-store",
-    })
-      .then((r) => r.json())
-      .then((d: OpenTextData) => {
-        setData({
-          sentiment: d?.sentiment ?? { labels: [], counts: [] },
-          topics: d?.topics ?? { labels: [], counts: [] },
-        });
-      })
-      .catch(() =>
-        setData({
-          sentiment: { labels: [], counts: [] },
-          topics: { labels: [], counts: [] },
-        })
-      )
-      .finally(() => setLoading(false));
-  }, [facultyName]);
-
-  const hasData =
-    data.topics.labels.length > 0 || data.sentiment.labels.length > 0;
-
-  if (loading) {
-    return (
-      <div className="w-full h-[260px] rounded-xl bg-slate-100 animate-pulse" />
-    );
-  }
-
-  if (!hasData) {
-    return (
-      <div className="text-sm text-slate-500 text-center py-6">
-        No open-text data for this question in this faculty.
-      </div>
-    );
-  }
-
-  const HEIGHT = 300;
-  const MARGIN = { t: 10, l: 40, r: 10, b: 60 }; // unified
-
+const OpenTextPerceptionsOpportunities: React.FC<{ facultyName: string }> = ({
+  facultyName,
+}) => {
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <div>
-        <h4 className="text-sm font-semibold text-emerald-700 mb-2">
-          Main reasons behind their positioning
-        </h4>
-        <Plot
-          data={[
-            {
-              x: data.topics.labels,
-              y: data.topics.counts,
-              type: "bar" as const,
-              marker: { color: "#16a34a", opacity: 0.95 },
-              hovertemplate: "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-            },
-          ]}
-          layout={{
-            margin: MARGIN,
-            xaxis: {
-              automargin: true,
-              tickfont: {
-                size: 10,        // <= make labels smaller (try 8–10)
-                family: "Inter, sans-serif", // optional
-              },
-            },
-            yaxis: { title: "Responses", rangemode: "tozero" },
-            height: HEIGHT,
-            paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(0,0,0,0)",
-          }}
-          style={{ width: "100%", height: HEIGHT }}
-          config={{ displayModeBar: false }}
-        />
-      </div>
-      <div>
-        <h4 className="text-sm font-semibold text-emerald-700 mb-2">
-          Sentiment of these reasons
-        </h4>
-        <Plot
-          data={[
-            {
-              x: data.sentiment.labels,
-              y: data.sentiment.counts,
-              type: "bar" as const,
-              marker: {
-                color: ["#ef4444", "#6b7280", "#22c55e"],
-              },
-              hovertemplate:
-                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-            },
-          ]}
-          layout={{
-            margin: MARGIN,
-            xaxis: { automargin: true },
-            yaxis: { title: "Responses", rangemode: "tozero" },
-            height: HEIGHT,
-            paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(0,0,0,0)",
-          }}
-          style={{ width: "100%", height: HEIGHT }}
-          config={{ displayModeBar: false }}
-        />
-      </div>
-    </div>
+    <OpenTextBrowser
+      facultyName={facultyName}
+      endpoint="/api/open_text/perceptions/opportunities/items"
+      title="Opportunities and risks – open text answers"
+      accentColor="#15803d"
+      subtitle="Filtered answers to the open question about opportunities and risks of AI at university."
+    />
   );
 };
 
-
-const OpenTextTrainingOtherNeeds: React.FC<{ facultyName: string }> = ({ facultyName }) => {
-  const [data, setData] = useState<OpenTextData>({
-    sentiment: { labels: [], counts: [] },
-    topics: { labels: [], counts: [] },
-  });
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ faculty: facultyName });
-    fetch(`${API_BASE}/api/open_text/training/other_needs?${params.toString()}`, {
-      cache: "no-store",
-    })
-      .then((r) => r.json())
-      .then((d: OpenTextData) => {
-        setData({
-          sentiment: d?.sentiment ?? { labels: [], counts: [] },
-          topics: d?.topics ?? { labels: [], counts: [] },
-        });
-      })
-      .catch(() =>
-        setData({
-          sentiment: { labels: [], counts: [] },
-          topics: { labels: [], counts: [] },
-        })
-      )
-      .finally(() => setLoading(false));
-  }, [facultyName]);
-
-  const hasData =
-    data.topics.labels.length > 0 || data.sentiment.labels.length > 0;
-
-  if (loading) {
-    return (
-      <div className="w-full h-[260px] rounded-xl bg-slate-100 animate-pulse" />
-    );
-  }
-
-  if (!hasData) {
-    return (
-      <div className="text-sm text-slate-500 text-center py-6">
-        No additional training needs described for this faculty.
-      </div>
-    );
-  }
-
-  const HEIGHT = 240;
-  const MARGIN = { t: 10, l: 40, r: 10, b: 60 };
-
+const OpenTextPerceptionsPositioning: React.FC<{ facultyName: string }> = ({
+  facultyName,
+}) => {
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <div>
-        <h4 className="text-sm font-semibold text-amber-700 mb-2">
-          Other training needs (topics)
-        </h4>
-        <Plot
-          data={[
-            {
-              x: data.topics.labels,
-              y: data.topics.counts,
-              type: "bar" as const,
-              marker: { color: "#b45309", opacity: 0.95 },
-              hovertemplate:
-                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-            },
-          ]}
-          layout={{
-            margin: MARGIN,
-            xaxis: { automargin: true },
-            yaxis: { title: "Responses", rangemode: "tozero" },
-            height: HEIGHT,
-            paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(0,0,0,0)",
-          }}
-          style={{ width: "100%", height: HEIGHT }}
-          config={{ displayModeBar: false }}
-        />
-      </div>
-      <div>
-        <h4 className="text-sm font-semibold text-amber-700 mb-2">
-          Sentiment about these needs
-        </h4>
-        <Plot
-          data={[
-            {
-              x: data.sentiment.labels,
-              y: data.sentiment.counts,
-              type: "bar" as const,
-              marker: {
-                color: ["#ef4444", "#6b7280", "#22c55e"],
-              },
-              hovertemplate:
-                "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-            },
-          ]}
-          layout={{
-            margin: MARGIN,
-            xaxis: { automargin: true },
-            yaxis: { title: "Responses", rangemode: "tozero" },
-            height: HEIGHT,
-            paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(0,0,0,0)",
-          }}
-          style={{ width: "100%", height: HEIGHT }}
-          config={{ displayModeBar: false }}
-        />
-      </div>
-    </div>
+    <OpenTextBrowser
+      facultyName={facultyName}
+      endpoint="/api/open_text/perceptions/positioning/items"
+      title="Reasons behind their positioning"
+      accentColor="#15803d"
+      subtitle="How teachers justify their positioning towards AI in teaching and evaluation."
+    />
   );
 };
 
+const OpenTextTrainingOtherNeeds: React.FC<{ facultyName: string }> = ({
+  facultyName,
+}) => {
+  return (
+    <OpenTextBrowser
+      facultyName={facultyName}
+      endpoint="/api/open_text/training/other_needs/items"
+      title="Other training needs (open text)"
+      accentColor="#b45309"
+      subtitle="Additional training needs described by teachers, beyond the predefined options."
+    />
+  );
+};
 
 const CommentsSection: React.FC<{ facultyName: string }> = ({ facultyName }) => {
-  const [data, setData] = useState<OpenTextData>({
-    sentiment: { labels: [], counts: [] },
-    topics: { labels: [], counts: [] },
-  });
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ faculty: facultyName });
-    fetch(`${API_BASE}/api/open_text/comments?${params.toString()}`, {
-      cache: "no-store",
-    })
-      .then((r) => r.json())
-      .then((d: OpenTextData) => {
-        setData({
-          sentiment: d?.sentiment ?? { labels: [], counts: [] },
-          topics: d?.topics ?? { labels: [], counts: [] },
-        });
-      })
-      .catch(() =>
-        setData({
-          sentiment: { labels: [], counts: [] },
-          topics: { labels: [], counts: [] },
-        })
-      )
-      .finally(() => setLoading(false));
-  }, [facultyName]);
-
-  const hasData =
-    data.topics.labels.length > 0 || data.sentiment.labels.length > 0;
-
-  const HEIGHT = 260;
-  const MARGIN = { t: 10, l: 40, r: 10, b: 60 };
-
-  if (loading) {
-    return (
-      <div className="w-full h-[280px] rounded-xl bg-slate-100 animate-pulse" />
-    );
-  }
-
-  if (!hasData) {
-    return (
-      <div className="text-sm text-slate-500 text-center py-10">
-        No general comments for this faculty.
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3">
-        <div className="p-3 rounded-xl bg-sky-100 text-sky-600">
-          <MessageSquare className="w-6 h-6" />
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold text-slate-800">
-            General comments on AI and the survey
-          </h3>
-          <p className="text-xs text-slate-500">
-            Aggregated themes and sentiment from the COMENTARIS field.
-          </p>
-        </div>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <div>
-          <h4 className="text-sm font-semibold text-sky-700 mb-2">
-            Main themes
-          </h4>
-          <Plot
-            data={[
-              {
-                x: data.topics.labels,
-                y: data.topics.counts,
-                type: "bar" as const,
-                marker: { color: "#0ea5e9", opacity: 0.95 },
-                hovertemplate:
-                  "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-              },
-            ]}
-            layout={{
-              margin: MARGIN,
-              xaxis: { automargin: true },
-              yaxis: { title: "Responses", rangemode: "tozero" },
-              height: HEIGHT,
-              paper_bgcolor: "rgba(0,0,0,0)",
-              plot_bgcolor: "rgba(0,0,0,0)",
-            }}
-            style={{ width: "100%", height: HEIGHT }}
-            config={{ displayModeBar: false }}
-          />
-        </div>
-
-        <div>
-          <h4 className="text-sm font-semibold text-sky-700 mb-2">
-            Sentiment
-          </h4>
-          <Plot
-            data={[
-              {
-                x: data.sentiment.labels,
-                y: data.sentiment.counts,
-                type: "bar" as const,
-                marker: {
-                  color: ["#ef4444", "#6b7280", "#22c55e"],
-                },
-                hovertemplate:
-                  "<b>%{x}</b><br>Responses: %{y}<extra></extra>",
-              },
-            ]}
-            layout={{
-              margin: MARGIN,
-              xaxis: { automargin: true },
-              yaxis: { title: "Responses", rangemode: "tozero" },
-              height: HEIGHT,
-              paper_bgcolor: "rgba(0,0,0,0)",
-              plot_bgcolor: "rgba(0,0,0,0)",
-            }}
-            style={{ width: "100%", height: HEIGHT }}
-            config={{ displayModeBar: false }}
-          />
-        </div>
-      </div>
-    </div>
+    <OpenTextBrowser
+      facultyName={facultyName}
+      endpoint="/api/open_text/comments/items"
+      title="General comments on AI and the survey"
+      accentColor="#0ea5e9"
+      subtitle="Free comments and meta-comments from the end of the survey."
+    />
   );
 };
-
 
 // -------------------------
 // Faculty Visualization Layout
@@ -1438,6 +1765,11 @@ const FacultyVisualization: React.FC<{
   const [scores, setScores] = useState<FacultyScores | null>(null);
   const [loadingScores, setLoadingScores] = useState<boolean>(true);
 
+  // NEW: survey data availability
+  const [hasSurveyData, setHasSurveyData] = useState<boolean | null>(null);
+  const [loadingSurveyInfo, setLoadingSurveyInfo] = useState<boolean>(true);
+
+  // Fetch section scores (existing)
   useEffect(() => {
     let cancelled = false;
     setLoadingScores(true);
@@ -1462,6 +1794,34 @@ const FacultyVisualization: React.FC<{
     };
   }, [faculty.name]);
 
+  // NEW: check whether this faculty has any survey responses
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingSurveyInfo(true);
+
+    fetch(`${API_BASE}/api/survey/faculties?min_count=1`, { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        const rows = Array.isArray(data?.faculties) ? data.faculties : [];
+        const found = rows.some(
+          (r: any) => r?.faculty_name === faculty.name
+        );
+        setHasSurveyData(found);
+      })
+      .catch(() => {
+        // fail-open: if the endpoint fails, we don't block the layout
+        if (!cancelled) setHasSurveyData(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSurveyInfo(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [faculty.name]);
+
   const toggleArea = (areaName: string) => {
     setExpandedAreas((prev) => {
       const newSet = new Set(prev);
@@ -1479,6 +1839,47 @@ const FacultyVisualization: React.FC<{
     if (areaName === 'Training') return scores.training_needs_score;
     return null;
   };
+
+  // NEW: empty-state when there are no survey answers for this faculty
+  if (!loadingSurveyInfo && hasSurveyData === false) {
+    const Icon = pickFacultyIcon(faculty.name);
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4">
+        <div className="max-w-3xl mx-auto">
+          <button
+            onClick={onBack}
+            className="mb-6 px-4 py-2 bg-white rounded-lg shadow-sm border border-slate-200 text-slate-600 hover:text-slate-800 hover:shadow-md transition-all duration-200"
+          >
+            ← Back to Faculty Selection
+          </button>
+
+          <div className="bg-white rounded-3xl shadow-lg border border-dashed border-slate-300 p-10 flex flex-col items-center text-center">
+            <div
+              className="mb-4 p-4 rounded-2xl"
+              style={{ backgroundColor: `${faculty.color}15` }}
+            >
+              <Icon className="w-12 h-12" style={{ color: faculty.color }} />
+            </div>
+            <h1 className="text-2xl font-semibold text-slate-800 mb-2">
+              No available data for this faculty
+            </h1>
+            <p className="text-sm text-slate-500 mb-4 max-w-md">
+              We haven&apos;t received any survey responses from the{" "}
+              <span className="font-medium">{faculty.name}</span> faculty yet.
+              Once responses are collected, this page will display detailed
+              visualizations.
+            </p>
+            <button
+              onClick={onBack}
+              className="mt-1 px-4 py-2 bg-slate-900 text-white rounded-lg shadow-sm hover:bg-slate-800 transition-colors text-sm"
+            >
+              ← Back to Faculty Selection
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4">
@@ -1501,7 +1902,6 @@ const FacultyVisualization: React.FC<{
           {/* Header */}
           <div className="p-8 border-b border-slate-200">
             <div className="flex items-center justify-between gap-4 flex-wrap">
-              {/* Left: icon + title */}
               <div className="flex items-center gap-4 min-w-0">
                 <div
                   className="p-4 rounded-xl shadow-sm shrink-0"
@@ -1529,7 +1929,6 @@ const FacultyVisualization: React.FC<{
                 </div>
               </div>
 
-              {/* Right: badge scoreboard */}
               <div className="ml-auto">
                 {loadingScores ? (
                   <div className="w-[7.5rem] h-[7.5rem] md:w-[8.5rem] md:h-[8.5rem] rounded-2xl bg-slate-100 ring-1 ring-slate-200 animate-pulse" />
@@ -1557,7 +1956,6 @@ const FacultyVisualization: React.FC<{
                     backgroundColor: isExpanded ? '#ffffff' : '#fafafa',
                   }}
                 >
-                  {/* Section header */}
                   <button
                     onClick={() => toggleArea(area.name)}
                     className="w-full p-6 hover:bg-slate-50 transition-colors duration-200 text-left"
@@ -1578,7 +1976,6 @@ const FacultyVisualization: React.FC<{
                         </p>
                       </div>
 
-                      {/* Section score bars */}
                       <div className="hidden md:flex justify-start">
                         {loadingScores ? (
                           <div className="h-3.5 w-[20rem] lg:w-[24rem] rounded-full bg-slate-100 ring-1 ring-slate-300 animate-pulse" />
@@ -1608,7 +2005,6 @@ const FacultyVisualization: React.FC<{
                     </div>
                   </button>
 
-                  {/* Section content */}
                   <div
                     className={`transition-all duration-300 ease-in-out overflow-hidden ${
                       isExpanded
@@ -1622,157 +2018,148 @@ const FacultyVisualization: React.FC<{
                     >
                       <div className="min-h-[400px] bg-slate-50 rounded-xl p-8 border-2 border-dashed border-slate-200">
                         {area.name === 'Knowledge' ? (
-                        <>
-                          <div className="flex flex-col gap-6">
-                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                              <KnowledgeFunctionalityChart
-                                facultyName={faculty.name}
-                                facultyColor={faculty.color}
-                              />
-                            </div>
-
-                            <div className="flex flex-col lg:flex-row gap-6">
-                              <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                <KnowledgeBarChart facultyName={faculty.name} />
+                          <>
+                            <div className="flex flex-col gap-6">
+                              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                <KnowledgeFunctionalityChart
+                                  facultyName={faculty.name}
+                                  facultyColor={faculty.color}
+                                />
                               </div>
 
-                              <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                <NormativePieChart facultyName={faculty.name} />
+                              <div className="flex flex-col lg:flex-row gap-6">
+                                <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                  <KnowledgeBarChart facultyName={faculty.name} />
+                                </div>
+
+                                <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                  <NormativePieChart facultyName={faculty.name} />
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          {/* Wordcloud hidden on <768px */}
-                          <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
-                            <KnowledgeApplicationsWordCloud
-                              facultyName={faculty.name}
-                              facultyColor={faculty.color}
-                            />
-                          </div>
-                        </>
-                      ) : area.name === 'Uses' ? (
-                        <>
-                          <div className="flex flex-col gap-6">
-                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                              <UsesFunctionalityChart
-                                facultyName={faculty.name}
-                                facultyColor={faculty.color}
-                              />
-                            </div>
-                            {/* Wordcloud hidden on <768px */}
                             <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
-                              <UsesApplicationsWordCloud
+                              <KnowledgeApplicationsWordCloud
                                 facultyName={faculty.name}
                                 facultyColor={faculty.color}
                               />
                             </div>
-
-                            <div className="flex flex-col lg:flex-row gap-6">
-                              <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                <UsesBarChart facultyName={faculty.name} />
+                          </>
+                        ) : area.name === 'Uses' ? (
+                          <>
+                            <div className="flex flex-col gap-6">
+                              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                <UsesFunctionalityChart
+                                  facultyName={faculty.name}
+                                  facultyColor={faculty.color}
+                                />
+                              </div>
+                              <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
+                                <UsesApplicationsWordCloud
+                                  facultyName={faculty.name}
+                                  facultyColor={faculty.color}
+                                />
                               </div>
 
-                              <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                <ProposesPieChart facultyName={faculty.name} />
+                              <div className="flex flex-col lg:flex-row gap-6">
+                                <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                  <UsesBarChart facultyName={faculty.name} />
+                                </div>
+
+                                <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                  <ProposesPieChart facultyName={faculty.name} />
+                                </div>
+                              </div>
+
+                              <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                <UsesStudentsFunctionalityChart
+                                  facultyName={faculty.name}
+                                  facultyColor={faculty.color}
+                                />
+                              </div>
+                              <div className="mt-6 flex flex-col lg:flex-row gap-6">
+                                <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                  <UsesStudentsAdequacyPieChart facultyName={faculty.name} />
+                                </div>
+
+                                <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                  <StudentsDocChangeByAdequacyBar facultyName={faculty.name} />
+                                </div>
                               </div>
                             </div>
-                            {/* Students uses by proposal (same logic as UsesFunctionalityChart) */}
-                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <UsesStudentsFunctionalityChart
-                              facultyName={faculty.name}
-                              facultyColor={faculty.color}
-                            />
-                          </div>
+                            <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
+                              <ToolsWordCloud
+                                facultyName={faculty.name}
+                                facultyColor={faculty.color}
+                              />
+                            </div>
+                          </>
+                        ) : area.name === 'Perceptions' ? (
+                          <div className="flex flex-col gap-6">
+                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <PerceptionsPrioritiesSpider
+                                facultyName={faculty.name}
+                                facultyColor={"#15803d"}
+                              />
+                            </div>
+                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <PerceptionsStudentsUsesBar
+                                facultyName={faculty.name}
+                                facultyColor={"#15803d"}
+                              />
+                            </div>
+                            <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <PerceptionsStudentsAttitudesBar
+                                facultyName={faculty.name}
+                                facultyColor="#15803d"
+                              />
+                            </div>
                             <div className="mt-6 flex flex-col lg:flex-row gap-6">
-                              <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                <UsesStudentsAdequacyPieChart facultyName={faculty.name} />
-                              </div>
-
                               <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                                <StudentsDocChangeByAdequacyBar facultyName={faculty.name} />
+                                <PerceptionsProfAttitudeSpider facultyName={faculty.name} facultyColor="#15803d" />
+                              </div>
+                              <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                                <PerceptionsTasksSupportPie facultyName={faculty.name} facultyColor="#15803d" />
                               </div>
                             </div>
-                          </div>
-                          <div className="mt-6 hidden md:block bg-white rounded-xl p-6 shadow-sm border border-slate-200 w-full">
-                            <ToolsWordCloud
-                              facultyName={faculty.name}
-                              facultyColor={faculty.color}
-                            />
-                          </div>
-                        </>
-                      ) : area.name === 'Perceptions' ? (
-                        <div className="flex flex-col gap-6">
-                          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <PerceptionsPrioritiesSpider
-                              facultyName={faculty.name}
-                              facultyColor={"#15803d"}   // Perceptions green
-                            />
-                          </div>
-                          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <PerceptionsStudentsUsesBar
-                              facultyName={faculty.name}
-                              facultyColor={"#15803d"}
-                            />
-                          </div>
-                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <PerceptionsStudentsAttitudesBar
-                              facultyName={faculty.name}
-                              facultyColor="#15803d"
-                            />
-                          </div>
-                          <div className="mt-6 flex flex-col lg:flex-row gap-6">
-                            <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                              <PerceptionsProfAttitudeSpider facultyName={faculty.name} facultyColor="#15803d" />
+                            <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <OpenTextPerceptionsPositioning facultyName={faculty.name} />
                             </div>
-                            <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                              <PerceptionsTasksSupportPie facultyName={faculty.name} facultyColor="#15803d" />
+                            <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <PerceptionsOpportunitiesRisksBar
+                                facultyName={faculty.name}
+                                facultyColor="#15803d"
+                              />
+                            </div>
+                            <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <OpenTextPerceptionsOpportunities facultyName={faculty.name} />
+                            </div>
+                          </div>
+                        ) : area.name === 'Training' ? (
+                          <div className="flex flex-col gap-6">
+                            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <TrainingReceivedSpider facultyName={faculty.name} facultyColor="#b45309" />
                             </div>
 
-                          </div>
-                           {/* NEW: open-text reasons behind positioning (PER_IA_POSICPROF_PERQUE) */}
-                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <OpenTextPerceptionsPositioning facultyName={faculty.name} />
-                          </div>
-                          {/* NEW: Opportunities & Risks stacked bar */}
-                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <PerceptionsOpportunitiesRisksBar
-                              facultyName={faculty.name}
-                              facultyColor="#15803d"
-                            />
-                          </div>
-                           {/* NEW: open-text opportunities/risks (PER_IA_OPORISCUNI_ALTRES) */}
-                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <OpenTextPerceptionsOpportunities facultyName={faculty.name} />
-                          </div>
-                        </div>
-                      ) : area.name === 'Training' ? (
-                        <div className="flex flex-col gap-6">
-                          {/* A: Training received (spider) */}
-                          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <TrainingReceivedSpider facultyName={faculty.name} facultyColor="#b45309" />
-                          </div>
-
-                          {/* B: Interest pie (40%) + Needs stacked bar (60%) */}
-                          <div className="mt-6 flex flex-col lg:flex-row gap-6">
-                            <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200 min-h-[520px]">
-                              <TrainingInterestPie facultyName={faculty.name} facultyColor="#b45309" />
+                            <div className="mt-6 flex flex-col lg:flex-row gap-6">
+                              <div className="lg:w-2/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200 min-h-[520px]">
+                                <TrainingInterestPie facultyName={faculty.name} facultyColor="#b45309" />
+                              </div>
+                              <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200 min-h-[520px]">
+                                <TrainingNeedsBar facultyName={faculty.name} facultyColor="#b45309" />
+                              </div>
                             </div>
-                            <div className="lg:w-3/5 bg-white rounded-xl p-4 shadow-sm border border-slate-200 min-h-[520px]">
-                              <TrainingNeedsBar facultyName={faculty.name} facultyColor="#b45309" />
+                            <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
+                              <OpenTextTrainingOtherNeeds facultyName={faculty.name} />
                             </div>
                           </div>
-                          {/* NEW: open-text "other training needs" at the end of the section */}
-                          <div className="mt-6 bg-white rounded-xl p-4 shadow-sm border border-slate-200">
-                            <OpenTextTrainingOtherNeeds facultyName={faculty.name} />
-                          </div>
-                        </div>
                         ) : area.name === 'Comments' ? (
-                        <div className="flex flex-col gap-6">
-                          <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-                            <CommentsSection facultyName={faculty.name} />
+                          <div className="flex flex-col gap-6">
+                            <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                              <CommentsSection facultyName={faculty.name} />
+                            </div>
                           </div>
-                        </div>
-                      ) : null}
+                        ) : null}
                       </div>
                     </div>
                   </div>

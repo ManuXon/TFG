@@ -106,10 +106,10 @@ const UsesStudentsAdequacyPieChart: React.FC<Props> = ({ facultyName }) => {
       ]}
       layout={{
         title: {
-          text: "What's the perception of students AI misuse?",
+          text: "What's the perception of students AI misuse",
           font: { size: pieTitleSize, color: "#334155" },
           xref: "paper",
-          x: 0.0,
+          x: -0.11,
           y: 1.05,
         },
         showlegend: true,

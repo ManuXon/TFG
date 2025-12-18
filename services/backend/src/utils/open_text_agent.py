@@ -15,15 +15,56 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # /app/s
 OPEN_TEXT_DIR = os.path.join(BASE_DIR, "data", "open_text")
 
 
+# --------------------------------------------------------------------
+# Trivial one-word answers we DON'T want to analyse with the LLM
+# --------------------------------------------------------------------
+TRIVIAL_SHORT_ANSWERS = {
+    "no",
+    "cap",      # catalan "none"
+    "n/a",
+    "na",
+    "none",
+    "-", "--",
+    ".",
+}
+
+
+def _normalize_text_basic(text: str) -> str:
+    """Lower, strip, remove surrounding punctuation, collapse spaces."""
+    t = str(text).strip().lower()
+    # Remove punctuation-like chars
+    t = re.sub(r"[^\wÀ-ÿ]+", " ", t, flags=re.UNICODE)
+    t = re.sub(r"\s+", " ", t).strip()
+    return t
+
+
+def is_trivial_short_answer(text: str) -> bool:
+    """
+    True if the answer is basically a single useless token such as "no" or "cap".
+
+    We do NOT send these to the LLM nor include them in the analysis parquet.
+    """
+    norm = _normalize_text_basic(text)
+    if not norm:
+        return False
+    tokens = norm.split()
+    if len(tokens) != 1:
+        return False
+    return tokens[0] in TRIVIAL_SHORT_ANSWERS
+
+
+# --------------------------------------------------------------------
+# Dataclasses
+# --------------------------------------------------------------------
 @dataclass
 class OpenTextRowAnalysis:
     row_id: int
-    sentiment: SentimentLabel  # coarse, used by current UI
+    sentiment: SentimentLabel          # coarse, 3-way
     cluster_id: int
     cluster_label: str
     main_topics: List[str]
-    # NEW: finer sentiment, does NOT break UI
-    sentiment_fine: str = "neutral"  # e.g. "very_negative", "mixed", etc.
+    sentiment_fine: str = "neutral"    # canonical 6-way label
+    english_text: str = ""             # translation of the original answer into English
 
 
 @dataclass
@@ -40,8 +81,8 @@ class OpenTextColumnAnalysis:
                     "cluster_id": r.cluster_id,
                     "cluster_label": r.cluster_label,
                     "main_topics": ",".join(r.main_topics) if r.main_topics else "",
-                    # NEW COLUMN: used only if you want later
                     "sentiment_fine": getattr(r, "sentiment_fine", r.sentiment),
+                    "english_text": getattr(r, "english_text", ""),
                 }
                 for r in self.rows
             ]
@@ -101,7 +142,9 @@ QUESTION_TOPICS: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# Finer-grained sentiment labels – you can tweak this later
+# --------------------------------------------------------------------
+# Canonical finer-grained sentiment labels (strict 6-level)
+# --------------------------------------------------------------------
 SENTIMENT_FINE_LABELS = [
     "very_negative",
     "negative",
@@ -121,10 +164,48 @@ FINE_TO_COARSE: Dict[str, SentimentLabel] = {
 }
 
 
+def _canonicalize_sentiment_fine(raw: str, coarse: SentimentLabel) -> str:
+    """
+    Map arbitrary LLM output into one of the 6 canonical labels.
+    We still *ask* the model to use exactly those, but this is the safety net.
+    """
+    s = (raw or "").strip().lower()
+
+    # direct match (already canonical)
+    if s in SENTIMENT_FINE_LABELS:
+        return s
+
+    # allow "very negative", "very-positive", etc.
+    s_norm = s.replace(" ", "_").replace("-", "_")
+    if s_norm in SENTIMENT_FINE_LABELS:
+        return s_norm
+
+    # heuristic fallbacks based on wording
+    if "very" in s and "neg" in s:
+        return "very_negative"
+    if "very" in s and "pos" in s:
+        return "very_positive"
+    if "mixed" in s or "ambivalent" in s:
+        return "mixed"
+    if "neutral" in s:
+        return "neutral"
+    if "neg" in s or "risk" in s or "preocup" in s or "perill" in s:
+        return "negative"
+    if "pos" in s or "opportun" in s or "oportunitat" in s:
+        return "positive"
+
+    # if still unclear, derive from coarse
+    if coarse == "negative":
+        return "negative"
+    if coarse == "positive":
+        return "positive"
+    # coarse neutral
+    return "neutral"
+
+
 def load_open_text_analysis() -> Dict[str, pd.DataFrame]:
     """
     Load precomputed analysis for each open-text question.
-    Also print debug info so we stop guessing.
     """
     base = OPEN_TEXT_DIR
     os.makedirs(base, exist_ok=True)
@@ -155,6 +236,7 @@ def load_open_text_analysis() -> Dict[str, pd.DataFrame]:
                         "cluster_label",
                         "main_topics",
                         "sentiment_fine",
+                        "english_text",
                     ]
                 )
         else:
@@ -167,6 +249,7 @@ def load_open_text_analysis() -> Dict[str, pd.DataFrame]:
                     "cluster_label",
                     "main_topics",
                     "sentiment_fine",
+                    "english_text",
                 ]
             )
 
@@ -174,12 +257,14 @@ def load_open_text_analysis() -> Dict[str, pd.DataFrame]:
 
     return result
 
+
 class OpenTextLLMResult(TypedDict):
     sentiment: SentimentLabel
     sentiment_fine: str
     cluster_id: int
     cluster_label: str
     main_topics: list[str]
+    english_text: str
 
 
 def call_llm_for_open_text(text: str, question_id: str) -> OpenTextLLMResult:
@@ -189,9 +274,8 @@ def call_llm_for_open_text(text: str, question_id: str) -> OpenTextLLMResult:
     You MUST return a single JSON object with the following keys:
 
     - sentiment: one of "negative", "neutral", or "positive"
-    - sentiment_fine: a finer sentiment label, examples:
-      "very negative", "negative but nuanced", "ambivalent",
-      "somewhat positive", "very positive", "mixed", etc.
+    - sentiment_fine: a finer sentiment label, and it MUST be EXACTLY one of:
+      "very_negative", "negative", "mixed", "neutral", "positive", "very_positive"
     - cluster_id: an integer (0–20). Use the same cluster_id for answers
       that talk about similar themes. If unsure, 0 is acceptable.
     - cluster_label: a short (max 6 words) theme label, e.g.
@@ -199,6 +283,7 @@ def call_llm_for_open_text(text: str, question_id: str) -> OpenTextLLMResult:
       "integration inevitable", "general training", etc.
     - main_topics: list of 1–5 short topic strings, e.g.
       ["cognitive atrophy", "critical thinking", "evaluation fairness"]
+    - english_text: the same answer translated into English, preserving meaning and tone.
 
     The JSON MUST NOT contain any other keys and MUST NOT be wrapped in Markdown.
     """
@@ -219,8 +304,7 @@ def call_llm_for_open_text(text: str, question_id: str) -> OpenTextLLMResult:
     Question type: {q_description}
 
     Answer (original text, keep language as is):
-    \"\"\"{text}\"\"\"
-
+    \"\"\"{text}\"\"\"\n
     Analyse this single answer and return the JSON object described above.
     """
 
@@ -230,26 +314,30 @@ def call_llm_for_open_text(text: str, question_id: str) -> OpenTextLLMResult:
         # Fail-safe so the pipeline never explodes mid-run
         return OpenTextLLMResult(
             sentiment="neutral",
-            sentiment_fine="unknown",
+            sentiment_fine="neutral",
             cluster_id=0,
             cluster_label="Unclassified",
             main_topics=[],
+            english_text=text,
         )
 
-    # --- coercion / validation ---
+    # --- coarse sentiment coercion / validation ---
     sentiment_raw = str(raw.get("sentiment", "neutral")).lower()
     if sentiment_raw not in {"negative", "neutral", "positive"}:
-        if re.search(r"(risk|perill|preocupant|very negative)", sentiment_raw):
+        if re.search(r"(risk|perill|preocupant|very negative|negativ)", sentiment_raw):
             sentiment: SentimentLabel = "negative"
-        elif re.search(r"(oportunitat|opportunity|very positive)", sentiment_raw):
+        elif re.search(r"(oportunitat|opportunity|very positive|positiv)", sentiment_raw):
             sentiment = "positive"
         else:
             sentiment = "neutral"
     else:
         sentiment = sentiment_raw  # type: ignore[assignment]
 
-    sentiment_fine = str(raw.get("sentiment_fine", "") or "").strip() or "unspecified"
+    # finer label → canonical 6-way
+    raw_fine = str(raw.get("sentiment_fine", "") or "").strip()
+    sentiment_fine = _canonicalize_sentiment_fine(raw_fine, sentiment)
 
+    # cluster_id
     try:
         cluster_id = int(raw.get("cluster_id", 0))
     except (TypeError, ValueError):
@@ -263,10 +351,13 @@ def call_llm_for_open_text(text: str, question_id: str) -> OpenTextLLMResult:
     else:
         main_topics = []
 
+    english_text = str(raw.get("english_text", "") or "").strip() or text
+
     return OpenTextLLMResult(
         sentiment=sentiment,
         sentiment_fine=sentiment_fine,
         cluster_id=cluster_id,
         cluster_label=cluster_label,
         main_topics=main_topics,
+        english_text=english_text,
     )

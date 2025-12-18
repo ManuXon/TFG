@@ -10,14 +10,16 @@ type Resp = {
 
 const rgba = (hex: string, a = 1) => {
   const s = hex.replace("#", "");
-  const r = parseInt(s.slice(0,2), 16);
-  const g = parseInt(s.slice(2,4), 16);
-  const b = parseInt(s.slice(4,6), 16);
+  const r = parseInt(s.slice(0, 2), 16);
+  const g = parseInt(s.slice(2, 4), 16);
+  const b = parseInt(s.slice(4, 6), 16);
   return `rgba(${r},${g},${b},${a})`;
 };
 
 const useWindowWidth = () => {
-  const [w, setW] = useState<number>(() => (typeof window !== "undefined" ? window.innerWidth : 1024));
+  const [w, setW] = useState<number>(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1024
+  );
   useEffect(() => {
     const f = () => setW(window.innerWidth);
     window.addEventListener("resize", f);
@@ -33,6 +35,9 @@ const PerceptionsPrioritiesSpider: React.FC<{
   const [data, setData] = useState<Resp | null>(null);
   const [loading, setLoading] = useState(false);
   const [noData, setNoData] = useState(false);
+
+  // spider variant toggle
+  const [spiderMode, setSpiderMode] = useState<"area" | "bars">("area");
 
   // filters
   const [gender, setGender] = useState<string>("All");
@@ -64,7 +69,14 @@ const PerceptionsPrioritiesSpider: React.FC<{
       .then((r) => r.json())
       .then((json: Resp) => {
         setData(json);
-        setNoData(!(json && json.axis && json.axis.length > 0 && json.counts.some((v) => v > 0)));
+        setNoData(
+          !(
+            json &&
+            json.axis &&
+            json.axis.length > 0 &&
+            json.counts.some((v) => v > 0)
+          )
+        );
       })
       .catch(() => {
         setData(null);
@@ -73,7 +85,7 @@ const PerceptionsPrioritiesSpider: React.FC<{
       .finally(() => setLoading(false));
   }, [facultyName, gender, experience, profile]);
 
-  // Close-loop arrays for polar
+  // Close-loop arrays for polar (area mode)
   const rVals = useMemo(() => {
     if (!data) return [];
     const core = data.counts;
@@ -94,20 +106,35 @@ const PerceptionsPrioritiesSpider: React.FC<{
 
   const shares = useMemo(() => {
     if (!data) return [];
-    return data.counts.map((v) => (data.total > 0 ? (v * 100) / data.total : 0));
+    return data.counts.map((v) =>
+      data.total > 0 ? (v * 100) / data.total : 0
+    );
   }, [data]);
 
-  // Pair [longLabel, sharePct] and also close the loop
-  const customdata = useMemo(() => {
+  // Base customdata (no loop) for bar mode
+  const baseCustomData = useMemo(() => {
     if (!data) return [];
-    const base = longAxis.map((L, i) => [L, shares[i]]);
-    return base.length ? base.concat([base[0]]) : base;
+    return longAxis.map((L, i) => [L, shares[i]]);
   }, [longAxis, shares, data]);
+
+  // Closed-loop customdata for area mode
+  const customdataClosed = useMemo(() => {
+    const base = baseCustomData;
+    return base.length ? base.concat([base[0]]) : base;
+  }, [baseCustomData]);
+
+  // Radial max: same logic for area & bars
+  const radialMax = useMemo(() => {
+    if (!data || !data.counts || data.counts.length === 0) return 1;
+    const maxVal = Math.max(...data.counts);
+    if (!isFinite(maxVal) || maxVal <= 0) return 1;
+    return maxVal * 1.1;
+  }, [data]);
 
   return (
     <div>
       {/* Filters */}
-      <div className="flex flex-wrap justify-center gap-2 mb-4">
+      <div className="flex flex-wrap justify-center gap-2 mb-3">
         <select
           value={gender}
           onChange={(e) => setGender(e.target.value)}
@@ -148,21 +175,59 @@ const PerceptionsPrioritiesSpider: React.FC<{
         </select>
       </div>
 
+      {/* SPIDER MODE TOGGLE – same style/placement as others */}
+      {!loading && data && !noData && (
+        <div className="flex justify-center mb-3">
+          <div className="inline-flex rounded-lg border border-slate-300 bg-white shadow-sm overflow-hidden">
+            <button
+              onClick={() => setSpiderMode("area")}
+              className={
+                "px-3 py-1.5 text-xs md:text-sm " +
+                (spiderMode === "area"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "text-slate-600 hover:bg-slate-50")
+              }
+            >
+              Spider (area)
+            </button>
+            <button
+              onClick={() => setSpiderMode("bars")}
+              className={
+                "px-3 py-1.5 text-xs md:text-sm border-l border-slate-300 " +
+                (spiderMode === "bars"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "text-slate-600 hover:bg-slate-50")
+              }
+            >
+              Spider (bars)
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="relative w-full h-[560px] rounded-xl border border-slate-200 bg-white overflow-hidden">
-        {loading && <div className="absolute inset-0 bg-slate-100 animate-pulse" />}
+        {loading && (
+          <div className="absolute inset-0 bg-slate-100 animate-pulse" />
+        )}
 
         {!loading && (noData || !data) && (
           <div
             className="absolute inset-0 flex items-center justify-center"
             style={{ background: tintBg, border: tintBorder }}
           >
-            <p style={{ color: facultyColor, fontWeight: 600, letterSpacing: ".2px" }}>
+            <p
+              style={{
+                color: facultyColor,
+                fontWeight: 600,
+                letterSpacing: ".2px",
+              }}
+            >
               No data for the selected filters.
             </p>
           </div>
         )}
 
-        {!loading && data && !noData && (
+        {!loading && data && !noData && spiderMode === "area" && (
           <Plot
             data={[
               {
@@ -173,7 +238,7 @@ const PerceptionsPrioritiesSpider: React.FC<{
                 name: "Top priorities (counts)",
                 line: { color: facultyColor, width: 3 },
                 fillcolor: rgba(facultyColor, 0.25),
-                customdata, // [longLabel, sharePct]
+                customdata: customdataClosed, // [longLabel, sharePct] closed loop
                 hovertemplate:
                   `<b>%{customdata[0]}</b>` +
                   `<br>Count: <b>%{r}</b>` +
@@ -189,10 +254,11 @@ const PerceptionsPrioritiesSpider: React.FC<{
               polar: {
                 bgcolor: "rgba(0,0,0,0)",
                 radialaxis: {
-                  visible: false,
-                  range: [0, Math.max(1, ...data.counts) * 1.1],
+                  visible: true,
+                  range: [0, radialMax],
                   gridcolor: "#e2e8f0",
-                  showline: false,
+                  showline: true,
+                  title: { text: "Total count", font: { size: 11 } },
                 },
                 angularaxis: {
                   gridcolor: "#e2e8f0",
@@ -202,6 +268,72 @@ const PerceptionsPrioritiesSpider: React.FC<{
                   tickfont: { color: "#334155", size: tickSize },
                 },
               },
+              showlegend: false,
+              margin: { t: 90, l: 60, r: 40, b: 40 },
+              paper_bgcolor: "rgba(0,0,0,0)",
+              plot_bgcolor: "rgba(0,0,0,0)",
+            }}
+            style={{ width: "100%", height: "100%" }}
+            config={{ displayModeBar: false }}
+          />
+        )}
+
+        {!loading && data && !noData && spiderMode === "bars" && (
+          <Plot
+            data={[
+              {
+                type: "barpolar" as const,
+                r: data.counts,
+                theta: data.axis,
+                name: "Top priorities (counts)",
+                marker: {
+                  color: facultyColor,
+                  line: { color: "#ffffff", width: 1 },
+                },
+                opacity: 0.95,
+                customdata: baseCustomData, // [longLabel, sharePct] per axis
+                hovertemplate:
+                  `<b>%{customdata[0]}</b>` +
+                  `<br>Count: <b>%{r}</b>` +
+                  `<br>Share: <b>%{customdata[1]:.1f}%</b><extra></extra>`,
+              },
+            ]}
+            layout={{
+              title: {
+                text: "Which teaching functions are prioritized?",
+                font: { size: titleSize, color: "#334155" },
+                y: 0.96,
+              },
+              polar: {
+                bgcolor: "rgba(0,0,0,0)",
+                radialaxis: {
+                  visible: true,
+                  showline: true,
+                  range: [0, radialMax],
+                  gridcolor: "#e2e8f0",
+                  gridwidth: 1.3,
+                  showticklabels: true,
+                  ticks: "",
+                  tickfont: { color: "#475569", size: 11 },
+                  title: {
+                    text: "Total count",
+                    font: { size: 11 },
+                  },
+                },
+                angularaxis: {
+                  gridcolor: "#e2e8f0",
+                  linecolor: "#cbd5e1",
+                  showline: true,
+                  linewidth: 1.3,
+                  tickfont: {
+                    color: "#334155",
+                    size: tickSize,
+                  },
+                  ticklen: 8,
+                  ticks: "",
+                },
+              },
+              barmode: "group",
               showlegend: false,
               margin: { t: 90, l: 60, r: 40, b: 40 },
               paper_bgcolor: "rgba(0,0,0,0)",

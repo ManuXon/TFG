@@ -13,6 +13,63 @@ html, body, #root {
 }
 
 
+/* Floating button */
+.mapai-chat-fab{
+  position: fixed; right: 20px; bottom: 20px; z-index: 9999;
+  width: 52px; height: 52px; border-radius: 9999px;
+  border: none; cursor: pointer;
+  background: linear-gradient(135deg,#3E85EE,#2563eb);
+  color: white; box-shadow: 0 8px 24px rgba(0,0,0,.2);
+  display:flex; align-items:center; justify-content:center;
+}
+.mapai-chat-fab:hover{ transform: translateY(-1px); }
+
+/* Drawer */
+.mapai-chat-drawer{
+  position: fixed; right: 20px; bottom: 20px; z-index: 10000;
+  width: 360px; max-height: 70vh; display:flex; flex-direction:column;
+  background: #fff; border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.25);
+  overflow: hidden;
+}
+.mapai-chat-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 10px 12px; background: #0f172a; color:#fff;
+}
+.mapai-chat-title{ font-weight:600; }
+.mapai-chat-controls{ display:flex; gap:8px; align-items:center; }
+.mapai-chat-lang{
+  background:#1f2937; color:#e5e7eb; border:1px solid #374151; border-radius:8px; padding:4px 6px;
+}
+.mapai-chat-close{
+  background:transparent; border:none; color:#e5e7eb; cursor:pointer;
+}
+
+.mapai-chat-body{
+  padding: 12px; overflow:auto; background:#f8fafc; flex:1;
+}
+.mapai-chat-bubble{
+  max-width: 85%; margin: 6px 0; padding: 10px 12px; border-radius: 12px; line-height:1.35;
+  white-space: pre-wrap;
+}
+.mapai-chat-bubble.user{
+  margin-left: auto; background: #e0f2fe; border:1px solid #bae6fd;
+}
+.mapai-chat-bubble.assistant{
+  margin-right: auto; background: #eef2ff; border:1px solid #e0e7ff;
+}
+
+.mapai-chat-inputrow{
+  display:flex; gap:8px; padding: 10px; border-top:1px solid #e5e7eb; background:#fff;
+}
+.mapai-chat-inputrow textarea{
+  flex:1; resize: none; border:1px solid #e5e7eb; border-radius: 10px; padding:8px; font: inherit;
+}
+.mapai-chat-send{
+  width:44px; height:44px; border:none; border-radius:10px; background:#3b82f6; color:#fff; cursor:pointer;
+}
+.mapai-chat-send:disabled{ opacity:.5; cursor: default; }
+
+
 
 @tailwind base;
 @tailwind components;

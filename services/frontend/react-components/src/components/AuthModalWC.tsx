@@ -1,9 +1,10 @@
+// AuthModalWC.tsx
 import React, { useEffect, useState } from "react";
 import LoginModal from "./LoginModal";
 
-// AuthModalWC.tsx (top)
+// Keep API_BASE
 const API_BASE =
-  (typeof window !== 'undefined' && (window as any).__API_BASE__) || '';
+  (typeof window !== "undefined" && (window as any).__API_BASE__) || "";
 
 const api = {
   login: async (username: string, password: string) => {
@@ -11,7 +12,7 @@ const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password }),
     });
     const ok = r.ok;
     let msg = "Login successful!";
@@ -22,10 +23,12 @@ const api = {
     return { success: ok, message: ok ? msg : "Invalid credentials" };
   },
   logout: async () => {
-    await fetch(`${API_BASE}/api/logout`, { method: "POST", credentials: "include" });
+    await fetch(`${API_BASE}/api/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
   },
 };
-
 
 const AuthModalWC: React.FC = () => {
   const [open, setOpen] = useState(false);
@@ -41,12 +44,34 @@ const AuthModalWC: React.FC = () => {
     };
   }, []);
 
+  // ✅ wrappers that dispatch the global auth event
+  const handleLogin = async (username: string, password: string) => {
+    const res = await api.login(username, password);
+    if (res.success) {
+      window.dispatchEvent(
+        new CustomEvent("mapai:authChanged", {
+          detail: { isAuthenticated: true, username },
+        })
+      );
+    }
+    return res; // must return { success, message } to LoginModal
+  };
+
+  const handleLogout = async () => {
+    await api.logout();
+    window.dispatchEvent(
+      new CustomEvent("mapai:authChanged", {
+        detail: { isAuthenticated: false },
+      })
+    );
+  };
+
   return (
     <LoginModal
       isOpen={open}
       onClose={() => setOpen(false)}
-      onLogin={api.login}
-      onLogout={api.logout}
+      onLogin={handleLogin}   // ✅ use wrappers
+      onLogout={handleLogout} // ✅ use wrappers
     />
   );
 };

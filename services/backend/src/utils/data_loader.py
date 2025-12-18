@@ -396,18 +396,18 @@ TRAINING_NEEDS_COLS = [
 
 # Short axis labels for x-axis
 TRAINING_NEEDS_AXIS_SHORT_EN = {
-    "FOR_IA_NECEFORMAT_1_DOC":  "Teaching",
+    "FOR_IA_NECEFORMAT_1_DOC": "Teaching",
     "FOR_IA_NECEFORMAT_2_AVAL": "Assessment",
-    "FOR_IA_NECEFORMAT_3_CREAM":"Materials",
-    "FOR_IA_NECEFORMAT_4_REC":  "Research",
+    "FOR_IA_NECEFORMAT_3_CREAM": "Materials",
+    "FOR_IA_NECEFORMAT_4_REC": "Research",
 }
 
 # Long labels for hover (tooltips)
 TRAINING_NEEDS_AXIS_LONG_EN = {
-    "FOR_IA_NECEFORMAT_1_DOC":  "I have training needs about AI for teaching",
+    "FOR_IA_NECEFORMAT_1_DOC": "I have training needs about AI for teaching",
     "FOR_IA_NECEFORMAT_2_AVAL": "I have training needs about AI for assessment",
-    "FOR_IA_NECEFORMAT_3_CREAM":"I have training needs about AI for creating materials",
-    "FOR_IA_NECEFORMAT_4_REC":  "I have training needs about AI for research",
+    "FOR_IA_NECEFORMAT_3_CREAM": "I have training needs about AI for creating materials",
+    "FOR_IA_NECEFORMAT_4_REC": "I have training needs about AI for research",
 }
 
 
@@ -497,6 +497,46 @@ normative_points = {
     "I ignore if there's a guide or normative": 50,
     "There is no guide or normative": 0,
 }
+
+# 1–4 Likert (Strongly disagree → Strongly agree) mapped to 0–100
+agreement4_points = {
+    "Strongly disagree": 0.0,
+    "Disagree": 33.0,
+    "Agree": 66.0,
+    "Strongly agree": 100.0,
+}
+
+# Professor overall attitude towards AI (per_prof_attitude_mapping result)
+prof_attitude_points = {
+    "Prohibit": 0.0,
+    "Avoid": 33.0,
+    "Overcome": 66.0,
+    "Integrate": 100.0,
+}
+
+# Training interest (TRAINING_INTEREST_MAP result)
+training_interest_points = {
+    "Not interested at all": 0.0,
+    "Low interest": 33.0,
+    "Moderate interest": 66.0,
+    "High interest": 100.0,
+}
+
+
+def likert4_label_to_score(label):
+    """Map 'Strongly disagree'..'Strongly agree' to 0–100."""
+    return agreement4_points.get(label, np.nan)
+
+
+def likert4_label_to_score_reversed(label):
+    """
+    Reverse 1–4 Likert meaning: good perception = DISagree with the statement.
+    (Used for risk / negative-phrased items.)
+    """
+    s = agreement4_points.get(label, np.nan)
+    if isinstance(s, (int, float)) and not np.isnan(s):
+        return 100.0 - s
+    return np.nan
 
 
 def compute_row_knowledge_score(row: pd.Series) -> float:
@@ -634,6 +674,118 @@ def compute_row_uses_score(row: pd.Series) -> float:
 
     total_weight = sum(weights)
     return (sum(weighted_scores) / total_weight)
+
+
+def compute_row_perceptions_score(row: pd.Series) -> float:
+    """
+    Build a 0–100 'perceptions of AI' score for ONE respondent.
+
+    Higher = more positive, opportunity-focused perception of AI in the university context.
+    Pieces:
+      - per_ia_tasks_doc / per_ia_tasks_rec (AI enriches teaching/research)
+      - PER_IA_OPORISCUNI_* opportunities (1–6)  [direct]
+      - PER_IA_OPORISCUNI_* risks (7–12)        [reverse-coded]
+      - PER_IA_POSICPROF_PROH_EV_SUP_INT (Prohibit → Integrate)
+      - Students attitudes items (first 3 positive, last 3 negative reversed)
+    """
+    parts = []
+
+    # 1) Teaching & research support
+    tasks_scores = []
+    for col in ["per_ia_tasks_doc", "per_ia_tasks_rec"]:
+        label = row.get(col, None)
+        tasks_scores.append(likert4_label_to_score(label))
+    tasks_avg = safe_nanmean(tasks_scores) if tasks_scores else np.nan
+    parts.append((tasks_avg, 0.25))
+
+    # 2) Professor global attitude to AI
+    prof_label = row.get("PER_IA_POSICPROF_PROH_EV_SUP_INT", None)
+    prof_score = prof_attitude_points.get(prof_label, np.nan)
+    parts.append((prof_score, 0.20))
+
+    # 3) Opportunities (OPORISCUNI 1–6) – direct
+    opp_scores = []
+    for col in PER_OPORISCUNI_COLS[:6]:
+        label = row.get(col, None)
+        opp_scores.append(likert4_label_to_score(label))
+    opp_avg = safe_nanmean(opp_scores) if opp_scores else np.nan
+    parts.append((opp_avg, 0.25))
+
+    # 4) Risks (OPORISCUNI 7–12) – reversed (disagreeing with risk = more positive)
+    risk_scores = []
+    for col in PER_OPORISCUNI_COLS[6:]:
+        label = row.get(col, None)
+        risk_scores.append(likert4_label_to_score_reversed(label))
+    risk_avg = safe_nanmean(risk_scores) if risk_scores else np.nan
+    parts.append((risk_avg, 0.20))
+
+    # 5) Students’ attitudes (first 3 positive, last 3 negative reversed)
+    stud_scores = []
+    # positive
+    for col in per_students_attitudes_cols[:3]:
+        label = row.get(col, None)
+        stud_scores.append(likert4_label_to_score(label))
+    # negative (reverse)
+    for col in per_students_attitudes_cols[3:]:
+        label = row.get(col, None)
+        stud_scores.append(likert4_label_to_score_reversed(label))
+    stud_avg = safe_nanmean(stud_scores) if stud_scores else np.nan
+    parts.append((stud_avg, 0.10))
+
+    # Combine, skipping missing parts and renormalising weights
+    weighted_scores = []
+    weights = []
+    for s, w in parts:
+        if not (isinstance(s, (int, float))) or np.isnan(s):
+            continue
+        weighted_scores.append(s * w)
+        weights.append(w)
+
+    if not weights:
+        return np.nan
+
+    total_weight = sum(weights)
+    return sum(weighted_scores) / total_weight
+
+
+def compute_row_training_needs_score(row: pd.Series) -> float:
+    """
+    Build a 0–100 'training needs' score for ONE respondent.
+
+    Higher = they perceive stronger training needs in AI.
+    Pieces:
+      - TRAINING_NEEDS_COLS (Likert 1–4, mapped via per_agreement4_mapping)
+      - training_interest (FOR_IA_INTERESFORMAT → TRAINING_INTEREST_MAP)
+    """
+    # 1) Specific needs (teaching, assessment, materials, research)
+    need_scores = []
+    for col in TRAINING_NEEDS_COLS:
+        label = row.get(col, None)
+        need_scores.append(likert4_label_to_score(label))
+    needs_avg = safe_nanmean(need_scores) if need_scores else np.nan
+
+    # 2) Overall interest in receiving training
+    interest_label = row.get("training_interest", None)
+    interest_score = training_interest_points.get(interest_label, np.nan)
+
+    parts = [
+        (needs_avg, 0.80),
+        (interest_score, 0.20),
+    ]
+
+    weighted_scores = []
+    weights = []
+    for s, w in parts:
+        if not (isinstance(s, (int, float))) or np.isnan(s):
+            continue
+        weighted_scores.append(s * w)
+        weights.append(w)
+
+    if not weights:
+        return np.nan
+
+    total_weight = sum(weights)
+    return sum(weighted_scores) / sum(weights)
 
 
 def df_to_json_safe(df: pd.DataFrame):
@@ -824,7 +976,15 @@ def load_surveys_data():
 
     # -------- TRAINING: multi-select normalization --------
     if "FOR_IA_FORMACIO_DOCREC" in surveys_df.columns:
-        surveys_df["training_received_list"] = surveys_df["FOR_IA_FORMACIO_DOCREC"].apply(_normalize_training_multiselect)
+        surveys_df["training_received_list"] = surveys_df["FOR_IA_FORMACIO_DOCREC"].apply(
+            _normalize_training_multiselect
+        )
+
+    # -------- TRAINING: overall interest in training --------
+    if "FOR_IA_INTERESFORMAT" in surveys_df.columns:
+        surveys_df["training_interest"] = surveys_df["FOR_IA_INTERESFORMAT"].map(TRAINING_INTEREST_MAP)
+    else:
+        surveys_df["training_interest"] = np.nan
 
     # -------- TRAINING: Needs (Likert 1..4) → English labels --------
     for col in TRAINING_NEEDS_COLS:
@@ -867,19 +1027,17 @@ def load_surveys_data():
     # ---------- Compute scores per row ----------
     surveys_df["knowledge_score"] = surveys_df.apply(compute_row_knowledge_score, axis=1)
     surveys_df["uses_score"] = surveys_df.apply(compute_row_uses_score, axis=1)
-
-    # TODO (later): real logic for these two
-    surveys_df["perceptions_score"] = np.random.randint(1, 101, size=len(surveys_df))
-    surveys_df["training_needs_score"] = np.random.randint(1, 101, size=len(surveys_df))
+    surveys_df["perceptions_score"] = surveys_df.apply(compute_row_perceptions_score, axis=1)
+    surveys_df["training_needs_score"] = surveys_df.apply(compute_row_training_needs_score, axis=1)
 
     # clean data
     surveys_df.replace(["", " ", "NaN", None], pd.NA, inplace=True)
     surveys_df.dropna(how="all", inplace=True)
 
-    #col = surveys_df['ia_uses_docchange_student']
+    # col = surveys_df['ia_uses_docchange_student']
 
-    #uvals = (col.dropna().astype(str).unique())
-    #for i, v in enumerate(uvals, 1):
+    # uvals = (col.dropna().astype(str).unique())
+    # for i, v in enumerate(uvals, 1):
     #    print(f"{i:2d}. {v}")
 
     # Ensure stable integer row IDs for joining with open-text analysis

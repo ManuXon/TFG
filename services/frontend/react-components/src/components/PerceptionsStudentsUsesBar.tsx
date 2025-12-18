@@ -167,7 +167,7 @@ const PerceptionsStudentsUsesBar: React.FC<{
               barnorm: "percent",
 
               title: {
-                text: "Where do students use AI in your courses? (perceived)",
+                text: "For what purpose do students use AI in your courses? (perceived)",
                 font: { size: titleSize, color: "#334155" },
                 y: 0.96,
               },

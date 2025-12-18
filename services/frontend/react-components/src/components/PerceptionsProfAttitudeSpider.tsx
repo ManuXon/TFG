@@ -14,11 +14,13 @@ const rgba = (hex: string, a = 1) => {
   const r = parseInt(s.slice(0,2), 16);
   const g = parseInt(s.slice(2,4), 16);
   const b = parseInt(s.slice(4,6), 16);
-  return `rgba(${r},${g},${b},${a})`;
+  return `rgba(${r},${g},${b},a)`.replace("a", String(a));
 };
 
 const useWindowWidth = () => {
-  const [w, setW] = useState<number>(() => (typeof window !== "undefined" ? window.innerWidth : 1024));
+  const [w, setW] = useState<number>(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1024
+  );
   useEffect(() => {
     const f = () => setW(window.innerWidth);
     window.addEventListener("resize", f);
@@ -34,6 +36,9 @@ const PerceptionsProfAttitudeSpider: React.FC<{
   const [data, setData] = useState<APIResp | null>(null);
   const [loading, setLoading] = useState(false);
   const [noData, setNoData] = useState(false);
+
+  // spider variant toggle
+  const [spiderMode, setSpiderMode] = useState<"area" | "bars">("area");
 
   // filters
   const [gender, setGender] = useState<string>("All");
@@ -65,7 +70,11 @@ const PerceptionsProfAttitudeSpider: React.FC<{
       .then((r) => r.json())
       .then((json: APIResp) => {
         setData(json);
-        const ok = json && json.axis && json.axis.length > 0 && json.counts.some(v => v > 0);
+        const ok =
+          json &&
+          json.axis &&
+          json.axis.length > 0 &&
+          json.counts.some((v) => v > 0);
         setNoData(!ok);
       })
       .catch(() => {
@@ -75,7 +84,7 @@ const PerceptionsProfAttitudeSpider: React.FC<{
       .finally(() => setLoading(false));
   }, [facultyName, gender, experience, profile]);
 
-  // Close the loop for polar
+  // Close the loop for polar (area mode)
   const rVals = useMemo(() => {
     if (!data) return [];
     const core = data.counts;
@@ -86,6 +95,43 @@ const PerceptionsProfAttitudeSpider: React.FC<{
     if (!data) return [];
     const core = data.axis;
     return core.length ? core.concat(core[0]) : core;
+  }, [data]);
+
+  // Long labels & shares for hover
+  const longAxis = useMemo(() => {
+    if (!data) return [];
+    return data.axis.map((lbl) => data.long_map?.[lbl] ?? lbl);
+  }, [data]);
+
+  const shares = useMemo(() => {
+    if (!data) return [];
+    return data.counts.map((v) =>
+      data.total > 0 ? (v * 100) / data.total : 0
+    );
+  }, [data]);
+
+  // Base customdata per axis: [count, sharePct, longLabel]
+  const baseCustomData = useMemo(() => {
+    if (!data) return [];
+    return data.axis.map((lbl, i) => [
+      data.counts[i] ?? 0,
+      data.total > 0 ? ((data.counts[i] ?? 0) * 100) / data.total : 0,
+      data.long_map?.[lbl] ?? lbl,
+    ]);
+  }, [data]);
+
+  // Closed-loop customdata for area
+  const customdataClosed = useMemo(() => {
+    const base = baseCustomData;
+    return base.length ? base.concat([base[0]]) : base;
+  }, [baseCustomData]);
+
+  // Shared radial max for both modes
+  const radialMax = useMemo(() => {
+    if (!data || !data.counts || data.counts.length === 0) return 1;
+    const maxVal = Math.max(...data.counts);
+    if (!isFinite(maxVal) || maxVal <= 0) return 1;
+    return maxVal * 1.15;
   }, [data]);
 
   return (
@@ -132,18 +178,60 @@ const PerceptionsProfAttitudeSpider: React.FC<{
         </select>
       </div>
 
+      {/* Spider mode toggle – same pattern as other spiders */}
+      {!loading && data && !noData && (
+        <div className="flex justify-center mb-3">
+          <div className="inline-flex rounded-lg border border-slate-300 bg-white shadow-sm overflow-hidden">
+            <button
+              onClick={() => setSpiderMode("area")}
+              className={
+                "px-3 py-1.5 text-xs md:text-sm " +
+                (spiderMode === "area"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "text-slate-600 hover:bg-slate-50")
+              }
+            >
+              Spider (area)
+            </button>
+            <button
+              onClick={() => setSpiderMode("bars")}
+              className={
+                "px-3 py-1.5 text-xs md:text-sm border-l border-slate-300 " +
+                (spiderMode === "bars"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "text-slate-600 hover:bg-slate-50")
+              }
+            >
+              Spider (bars)
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="relative w-full h-[470px] rounded-xl border border-slate-200 bg-white overflow-hidden">
-        {loading && <div className="absolute inset-0 bg-slate-100 animate-pulse" />}
+        {loading && (
+          <div className="absolute inset-0 bg-slate-100 animate-pulse" />
+        )}
 
         {!loading && (noData || !data) && (
-          <div className="absolute inset-0 flex items-center justify-center" style={{ background: tintBg, border: tintBorder }}>
-            <p style={{ color: facultyColor, fontWeight: 600, letterSpacing: ".2px" }}>
+          <div
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ background: tintBg, border: tintBorder }}
+          >
+            <p
+              style={{
+                color: facultyColor,
+                fontWeight: 600,
+                letterSpacing: ".2px",
+              }}
+            >
               No data for the selected filters.
             </p>
           </div>
         )}
 
-        {!loading && data && !noData && (
+        {/* AREA MODE (original behaviour) */}
+        {!loading && data && !noData && spiderMode === "area" && (
           <Plot
             data={[
               {
@@ -154,11 +242,7 @@ const PerceptionsProfAttitudeSpider: React.FC<{
                 name: "Professor stance",
                 line: { color: facultyColor, width: 3 },
                 fillcolor: rgba(facultyColor, 0.25),
-                customdata: data.axis.map((lbl, i) => [
-                  data.counts[i] ?? 0,
-                  data.total > 0 ? (data.counts[i] * 100) / data.total : 0,
-                  data.long_map?.[lbl] ?? lbl,
-                ]).concat([[data.counts[0] ?? 0, data.total > 0 ? (data.counts[0] * 100) / data.total : 0, data.long_map?.[data.axis[0]] ?? data.axis[0]]]),
+                customdata: customdataClosed, // [count, sharePct, longLabel]
                 hovertemplate:
                   "<b>%{customdata[2]}</b><br>" +
                   "Count: <b>%{customdata[0]}</b><br>" +
@@ -166,14 +250,20 @@ const PerceptionsProfAttitudeSpider: React.FC<{
               },
             ]}
             layout={{
-              title: { text: "How do you position yourself toward AI in teaching–learning?", font: { size: titleSize, color: "#334155" }, y: 0.96 },
+              title: {
+                text:
+                  "How do you position yourself toward AI in teaching–learning?",
+                font: { size: titleSize, color: "#334155" },
+                y: 0.96,
+              },
               polar: {
                 bgcolor: "rgba(0,0,0,0)",
                 radialaxis: {
-                  visible: false,
-                  range: [0, Math.max(1, ...data.counts) * 1.15],
+                  visible: true,
+                  range: [0, radialMax],
                   gridcolor: "#e2e8f0",
-                  showline: false,
+                  showline: true,
+                  title: { text: "Total count", font: { size: 11 } },
                 },
                 angularaxis: {
                   gridcolor: "#e2e8f0",
@@ -183,6 +273,77 @@ const PerceptionsProfAttitudeSpider: React.FC<{
                   tickfont: { color: "#334155", size: tickSize },
                 },
               },
+              showlegend: false,
+              margin: { t: 80, l: 60, r: 30, b: 40 },
+              paper_bgcolor: "rgba(0,0,0,0)",
+              plot_bgcolor: "rgba(0,0,0,0)",
+              hoverlabel: {
+                bgcolor: "rgba(255,255,255,0.95)",
+                bordercolor: "#cbd5e1",
+                font: { color: "#1e293b", size: 12 },
+                align: "left",
+              },
+            }}
+            style={{ width: "100%", height: "100%" }}
+            config={{ displayModeBar: false }}
+          />
+        )}
+
+        {/* BARS MODE (same scale, numeric axis visible) */}
+        {!loading && data && !noData && spiderMode === "bars" && (
+          <Plot
+            data={[
+              {
+                type: "barpolar" as const,
+                r: data.counts,
+                theta: data.axis,
+                name: "Professor stance",
+                marker: {
+                  color: facultyColor,
+                  line: { color: "#ffffff", width: 1 },
+                },
+                opacity: 0.95,
+                customdata: baseCustomData, // [count, sharePct, longLabel]
+                hovertemplate:
+                  "<b>%{customdata[2]}</b><br>" +
+                  "Count: <b>%{customdata[0]}</b><br>" +
+                  "Share: <b>%{customdata[1]:.1f}%</b><extra></extra>",
+              },
+            ]}
+            layout={{
+              title: {
+                text:
+                  "How do you position yourself toward AI in teaching–learning?",
+                font: { size: titleSize, color: "#334155" },
+                y: 0.96,
+              },
+              polar: {
+                bgcolor: "rgba(0,0,0,0)",
+                radialaxis: {
+                  visible: true,
+                  showline: true,
+                  range: [0, radialMax],
+                  gridcolor: "#e2e8f0",
+                  gridwidth: 1.3,
+                  showticklabels: true,
+                  ticks: "",
+                  tickfont: { color: "#475569", size: 11 },
+                  title: {
+                    text: "Total count",
+                    font: { size: 11 },
+                  },
+                },
+                angularaxis: {
+                  gridcolor: "#e2e8f0",
+                  linecolor: "#cbd5e1",
+                  showline: true,
+                  linewidth: 1.3,
+                  tickfont: { color: "#334155", size: tickSize },
+                  ticklen: 8,
+                  ticks: "",
+                },
+              },
+              barmode: "group",
               showlegend: false,
               margin: { t: 80, l: 60, r: 30, b: 40 },
               paper_bgcolor: "rgba(0,0,0,0)",

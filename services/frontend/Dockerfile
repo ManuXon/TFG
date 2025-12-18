@@ -1,5 +1,5 @@
 # 1️⃣ Build React (only used in prod)
-FROM node:18 AS react-build
+FROM node:20-alpine AS react-build
 WORKDIR /app
 COPY react-components/ ./react-components/
 WORKDIR /app/react-components

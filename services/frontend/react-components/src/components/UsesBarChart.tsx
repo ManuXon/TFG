@@ -87,7 +87,7 @@ const UsesBarChart = ({ facultyName }: { facultyName: string }) => {
             },
             yaxis: {
               title: {
-                text: "Avg Usage Level (1–4)",
+                text: "Avg Usage Level",
                 tickfont: { size: 10 },
               },
               range: [0, 4],
@@ -201,7 +201,7 @@ const UsesBarChart = ({ facultyName }: { facultyName: string }) => {
           },
           xaxis: { title: data.demographics[0], tickfont: { size: 10 } },
           yaxis: {
-            title: { text: "Avg Usage Level (1–4)" },
+            title: { text: "Avg Usage Level" },
             tickfont: { size: 10 },
             range: [0, 4],
           },
