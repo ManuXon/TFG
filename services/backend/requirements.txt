@@ -11,3 +11,20 @@ redis>=5.0.0
 bcrypt>=4.1.2
 pydantic>=2.7
 pydantic-settings>=2.2
+
+# --- REQUIRED for chatbot integration ---
+python-dotenv>=1.0.0
+
+# LangChain stack (used by pandas_agent + RAG bits)
+langchain-core>=0.2.0,<0.4
+langchain-community>=0.2.0,<0.4
+langchain-openai>=0.1.0,<0.3
+langchain-experimental>=0.0.50,<0.4
+langchain-chroma>=0.1.0,<0.3
+chromadb>=0.5.0,<1.0
+tiktoken>=0.7.0
+tabulate>=0.9.0
+posthog==4.8.0
+
+# Markdown/document parsing helpers (dataset_documentation + markdown_splitter often needs these)
+markdown>=3.6
