@@ -1117,6 +1117,7 @@ const KnowledgeFunctionalityChart: React.FC<{
                       r: matrix[i].concat(matrix[i][0]),
                       theta: funcLabels.concat(funcLabels[0]),
                       fill: "toself",
+                      hoveron: "points",
                       name: legendName,
                       line: { color, width: 3 },
                       fillcolor: color + "40",
