@@ -9,11 +9,34 @@ The system combines interactive dashboards (quantitative aggregates + coordinate
 
 ## Run the platform (production compose)
 
-The file example.backend.env should be renamed to backend.env and provided with an API key and a random security key for Redis.
+In the repository root, rename `example.backend.env` to `backend.env` and fill in:
+- an OpenAI API key (required for the chatbot’s LLM requests)
+- a random Redis security key
 
 From the repository root:
 
 ```bash
 docker-compose -f docker-compose.prod.yml up
+```
 
+## User Management
 
+To access the gated chatbot you must create/manage users in the backend using the built-in text UI.
+
+Run this inside the running backend container:
+```bash
+python -m src.scripts.users_tui
+```
+
+## React (IDE review) — avoid TypeScript errors
+
+If you open the files under `TFG/services/frontend/react-components` without installing the React dependencies, your IDE may show TypeScript errors (unresolved modules/types).
+
+The Docker build already installs these dependencies during the image build — the following step is only needed to review the React files locally without seeing typescript errors in an IDE.
+
+From the repository root:
+
+```bash
+cd ./services/frontend/react-components
+npm install
+```
