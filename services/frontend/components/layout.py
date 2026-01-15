@@ -410,7 +410,6 @@ layout = html.Div(
                                             dcc.RadioItems(
                                                 id="chart-type-toggle",
                                                 options=[
-                                                    {"label": "Bubble Chart", "value": "bubble"},
                                                     {"label": "Treemap", "value": "treemap"},
                                                 ],
                                                 value="treemap",

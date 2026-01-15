@@ -47,11 +47,6 @@ header = html.Header(
                         'cursor': 'pointer'
                     }
                 ),
-                html.A(
-                    "Faculties",
-                    href="#",
-                    className='text-dark font-medium-h text-decoration-none'
-                ),
                 # header (snippet)
                 html.Button(
                     "Analist mode",
