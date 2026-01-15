@@ -13,3 +13,5 @@ From the repository root:
 
 ```bash
 docker-compose -f docker-compose.prod.yml up
+
+The file example.backend.env should be renamed to backend.env and provided with an API key and a random security key for Redis.
