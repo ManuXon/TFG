@@ -665,9 +665,14 @@ const KnowledgeFunctionalityChart: React.FC<{
   ];
 
   const knowledgeLabels = data.map((d) => d.knowledge_label);
+
   const matrix = data.map((d) =>
-    funcLabels.map((_, i) => Object.values(d)[i + 1])
+    funcLabels.map((label) => {
+      const v = d[label];
+      return typeof v === "number" && isFinite(v) ? v : 0;
+    })
   );
+
 
   const maxRadialValue = React.useMemo(() => {
     if (!matrix.length) return 4;
@@ -904,7 +909,10 @@ const KnowledgeFunctionalityChart: React.FC<{
                   <Plot
                     data={funcLabels.map((label, i) => ({
                       x: knowledgeLabels,
-                      y: data.map((d) => Object.values(d)[i + 1]),
+                      y: data.map((d) => {
+                        const v = d[label];
+                        return typeof v === "number" && isFinite(v) ? v : 0;
+                      }),
                       name: label,
                       type: "bar",
                       orientation: "v",
@@ -1117,6 +1125,7 @@ const KnowledgeFunctionalityChart: React.FC<{
                       r: matrix[i].concat(matrix[i][0]),
                       theta: funcLabels.concat(funcLabels[0]),
                       fill: "toself",
+                      hoveron: "points",
                       name: legendName,
                       line: { color, width: 3 },
                       fillcolor: color + "40",

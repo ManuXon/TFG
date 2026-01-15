@@ -1,7 +1,6 @@
 import dash
 from dash import dcc, html
 import dash_bootstrap_components as dbc
-import dash_dangerously_set_inner_html
 from components.callbacks import register_callbacks
 from dash.dependencies import Input, Output
 import dash  # for dash.clientside.ClientsideFunction
@@ -48,11 +47,6 @@ header = html.Header(
                         'cursor': 'pointer'
                     }
                 ),
-                html.A(
-                    "Faculties",
-                    href="#",
-                    className='text-dark font-medium-h text-decoration-none'
-                ),
                 # header (snippet)
                 html.Button(
                     "Analist mode",
@@ -94,8 +88,8 @@ app.layout = html.Div(
             children=[
                 header,  # Header component
                 # Mount the modal custom element once:
-                dash_dangerously_set_inner_html.DangerouslySetInnerHTML("<ub-survey-overview></ub-survey-overview>"),
-                dash_dangerously_set_inner_html.DangerouslySetInnerHTML("<ub-auth-modal></ub-auth-modal>"),
+                html.Div(id="ub-survey-overview-host"),
+                html.Div(id="ub-auth-modal-host"),
                 layout,  # Main content (imported from layout.py)
                 footer,  # Footer component
                 dcc.Store(id="auth-open-signal"),

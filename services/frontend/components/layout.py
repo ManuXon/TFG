@@ -1,6 +1,5 @@
 from dash import dcc, html
 import dash_bootstrap_components as dbc
-import dash_dangerously_set_inner_html
 
 layout = html.Div(
     id="app-container",
@@ -324,14 +323,9 @@ layout = html.Div(
             html.Div(
                 id="mapbox-section",
                 children=[
-                    dash_dangerously_set_inner_html.DangerouslySetInnerHTML(
-                        "<ub-mapbox-dashboard></ub-mapbox-dashboard>"
-                    ),
+                    html.Div(id="ub-mapbox-dashboard-host"),
                 ],
-                style={
-                    # just to be nice to scrollIntoView with sticky headers
-                    "scrollMarginTop": "80px",
-                }
+                style={"scrollMarginTop": "80px"},
             )
         ]),
 
@@ -416,7 +410,6 @@ layout = html.Div(
                                             dcc.RadioItems(
                                                 id="chart-type-toggle",
                                                 options=[
-                                                    {"label": "Bubble Chart", "value": "bubble"},
                                                     {"label": "Treemap", "value": "treemap"},
                                                 ],
                                                 value="treemap",
@@ -725,19 +718,11 @@ layout = html.Div(
         html.Div(
             id="faculty-visualization",
             children=[
-                dash_dangerously_set_inner_html.DangerouslySetInnerHTML(
-                    "<ub-faculty-selector></ub-faculty-selector>"
-                ),
-                # If/when you mount <FacultyVisualization /> from React (or render its web component),
-                # do it in here too so scrolling lands on the whole block.
-                # dash_dangerously_set_inner_html.DangerouslySetInnerHTML(
-                #     "<ub-faculty-visualization></ub-faculty-visualization>"
-                # ),
+                # Host node. JS will append <ub-faculty-selector> here.
+                html.Div(id="ub-faculty-selector-host"),
             ],
             style={
-                # helps scrollIntoView land cleanly below sticky headers
                 "scrollMarginTop": "100px",
-                # optional: a tiny top margin, so it's visually separate
                 "marginTop": "40px",
             },
         )

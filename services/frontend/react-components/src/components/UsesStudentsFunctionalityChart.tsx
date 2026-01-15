@@ -674,6 +674,7 @@ const UsesStudentsFunctionalityChart: React.FC<{
                       r: rVals.concat(rVals[0]),
                       theta: funcLabels.concat(funcLabels[0]),
                       fill: "toself",
+                      hoveron: "points",
                       name: legendName,
                       line: { color, width: 3 },
                       fillcolor: color + "40",
